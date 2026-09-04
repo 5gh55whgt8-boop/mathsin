@@ -1,0 +1,10 @@
+import React from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { C } from '../theme';
+export const Screen=({children,style})=><View style={[s.screen,style]}>{children}</View>;
+export const Card=({children,style})=><View style={[s.card,style]}>{children}</View>;
+export const Title=({children})=><Text style={s.title}>{children}</Text>;
+export const Muted=({children})=><Text style={s.muted}>{children}</Text>;
+export const Input=(p)=><TextInput placeholderTextColor="#9AA3B3" {...p} style={[s.input,p.style]}/>;
+export const Button=({title,onPress,loading,kind='primary',disabled})=><Pressable disabled={disabled||loading} onPress={onPress} style={[s.btn,kind==='ghost'&&s.ghost]}>{loading?<ActivityIndicator/>:<Text style={[s.btnText,kind==='ghost'&&{color:C.primary}]}>{title}</Text>}</Pressable>;
+const s=StyleSheet.create({screen:{flex:1,backgroundColor:C.bg,padding:20},card:{backgroundColor:C.card,borderWidth:1,borderColor:C.border,borderRadius:20,padding:18},title:{fontSize:28,fontWeight:'800',color:C.ink},muted:{color:C.muted,lineHeight:20},input:{backgroundColor:'#fff',borderWidth:1,borderColor:C.border,borderRadius:14,padding:14,color:C.ink,marginTop:12},btn:{backgroundColor:C.primary,padding:15,borderRadius:14,alignItems:'center',marginTop:14},ghost:{backgroundColor:C.soft},btnText:{color:'#fff',fontWeight:'800'}});

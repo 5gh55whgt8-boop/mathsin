@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "MathLens AI",
+    "slug": "mathlens-ai",
+    "version": "4.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": { "package": "com.aparaitech.mathlensai", "permissions": ["CAMERA"] },
+    "ios": { "bundleIdentifier": "com.aparaitech.mathlensai", "infoPlist": { "NSCameraUsageDescription": "Scan equations and documents." } },
+    "plugins": ["expo-camera", "expo-image-picker", "expo-document-picker"]
+  }
+}

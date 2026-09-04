@@ -1,0 +1,5 @@
+import React,{useState} from 'react';
+import { Alert, Text, View } from 'react-native';
+import { Button, Input, Screen, Title, Muted } from '../components/UI';
+import { useAuth } from '../context/AuthContext';
+export default function LoginScreen({navigation}){const {login}=useAuth(); const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false); async function go(){try{setBusy(true);await login(email,password)}catch(e){Alert.alert('Login failed',e.response?.data?.error||e.message)}finally{setBusy(false)}} return <Screen style={{justifyContent:'center'}}><Title>MathLens AI</Title><Muted>Scan math. Edit it. Understand it.</Muted><Input placeholder="Email" autoCapitalize="none" value={email} onChangeText={setEmail}/><Input placeholder="Password" secureTextEntry value={password} onChangeText={setPassword}/><Button title="Sign in" loading={busy} onPress={go}/><Text onPress={()=>navigation.navigate('Register')} style={{textAlign:'center',marginTop:18}}>Create account</Text></Screen>}

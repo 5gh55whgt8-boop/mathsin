@@ -1,0 +1,5 @@
+import React,{useState} from 'react';
+import { Alert } from 'react-native';
+import { Button, Input, Screen, Title, Muted } from '../components/UI';
+import { useAuth } from '../context/AuthContext';
+export default function RegisterScreen(){const {register}=useAuth(); const [name,setName]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false); async function go(){try{setBusy(true);await register(name,email,password)}catch(e){Alert.alert('Registration failed',e.response?.data?.error||e.message)}finally{setBusy(false)}} return <Screen style={{justifyContent:'center'}}><Title>Create account</Title><Muted>Your scans sync to your workspace.</Muted><Input placeholder="Name" value={name} onChangeText={setName}/><Input placeholder="Email" autoCapitalize="none" value={email} onChangeText={setEmail}/><Input placeholder="Password (8+ characters)" secureTextEntry value={password} onChangeText={setPassword}/><Button title="Create account" loading={busy} onPress={go}/></Screen>}

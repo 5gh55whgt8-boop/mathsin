@@ -1,0 +1,11 @@
+{
+  "name": "mathlens-ai-phase4",
+  "private": true,
+  "version": "4.0.0",
+  "scripts": {
+    "backend": "npm --prefix backend run dev",
+    "mobile": "npm --prefix mobile start",
+    "web": "npm --prefix web run dev",
+    "preflight": "npm --prefix backend run preflight"
+  }
+}
