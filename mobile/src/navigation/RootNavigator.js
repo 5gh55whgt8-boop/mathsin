@@ -7,6 +7,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import VerifyOtpScreen from '../screens/VerifyOtpScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ScanScreen from '../screens/ScanScreen';
 import HistoryScreen from '../screens/HistoryScreen';
@@ -88,6 +89,7 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create account' }} />
+          <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} options={{ title: 'Verify email' }} />
         </>
       ) : (
         <>

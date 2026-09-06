@@ -16,6 +16,10 @@ export default function LoginScreen({ navigation }) {
       setBusy(true);
       await login(email.trim(), password);
     } catch (error) {
+      if (error.response?.data?.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        navigation.navigate('VerifyOtp', { email: error.response.data.email || email.trim() });
+        return;
+      }
       Alert.alert('Unable to sign in', error.response?.data?.error || error.message);
     } finally {
       setBusy(false);

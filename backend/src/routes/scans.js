@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import mammoth from 'mammoth';
 import { scanFile, scanImage, scanText } from '../services/openai.js';
+import { hasScanAccess, trialState } from '../services/entitlements.js';
 
 const uploadDir = path.resolve('uploads');
 const scanStorageDir = path.resolve('storage/scans');
@@ -17,6 +18,11 @@ await fs.mkdir(scanStorageDir, { recursive: true });
 const upload = multer({ dest: uploadDir, limits: { fileSize: env.maxFileSize } });
 const router = Router();
 router.use(requireAuth);
+
+function requireScanAccess(req, res, next) {
+  if (hasScanAccess(req.user)) return next();
+  return res.status(402).json({ error: 'Your free trial has ended. Subscribe to MathLens Pro to continue scanning.', code: 'SUBSCRIPTION_REQUIRED', trial: trialState(req.user) });
+}
 
 function safeExt(originalName = '', mimeType = '') {
   const ext = path.extname(originalName).toLowerCase();
@@ -59,7 +65,7 @@ async function saveResult(req, result, sourceType) {
   return scan;
 }
 
-router.post('/image', upload.single('file'), async (req, res, next) => {
+router.post('/image', requireScanAccess, upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
     if (!req.file.mimetype.startsWith('image/')) return res.status(415).json({ error: 'Image required' });
@@ -69,7 +75,7 @@ router.post('/image', upload.single('file'), async (req, res, next) => {
   finally { fs.unlink(req.file.path).catch(() => {}); }
 });
 
-router.post('/document', upload.single('file'), async (req, res, next) => {
+router.post('/document', requireScanAccess, upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
     const allowed = new Set(['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain']);

@@ -1435,6 +1435,17 @@ p {
   }
 }
 
+.sidebar-actions { display: grid; gap: 8px; margin: 14px 0; }
+.support-form { display: grid; gap: 12px; }
+.support-form input, .support-form textarea, .admin-table select { width: 100%; border: 1px solid var(--border, #dbe1ef); border-radius: 10px; padding: 11px 12px; font: inherit; color: inherit; background: #fff; }
+.support-form textarea { min-height: 100px; resize: vertical; }
+.table-scroll { overflow-x: auto; }
+.admin-table table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e7eaf2; vertical-align: middle; }
+.admin-table td small, .ticket-row small { display: block; color: #667085; margin-top: 3px; }
+.ticket-row { display: flex; justify-content: space-between; gap: 18px; padding: 14px 0; border-top: 1px solid #e7eaf2; }
+.ticket-row p { margin: 8px 0 0; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

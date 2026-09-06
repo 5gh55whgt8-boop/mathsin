@@ -4,7 +4,7 @@ import { AppText, Brand, Button, Card, Input, Muted, Screen, ScrollScreen } from
 import { useAuth } from '../context/AuthContext';
 import { C, shadows, spacing } from '../theme';
 
-export default function RegisterScreen() {
+export default function RegisterScreen({ navigation }) {
   const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,7 +15,8 @@ export default function RegisterScreen() {
   async function go() {
     try {
       setBusy(true);
-      await register(name.trim(), email.trim(), password);
+      const result = await register(name.trim(), email.trim(), password);
+      navigation.replace('VerifyOtp', { email: result.email || email.trim() });
     } catch (error) {
       Alert.alert('Unable to create account', error.response?.data?.error || error.message);
     } finally {

@@ -10,6 +10,7 @@ import scanRoutes from './routes/scans.js';
 import aiRoutes from './routes/ai.js';
 import exportRoutes from './routes/exports.js';
 import workspaceRoutes from './routes/workspace.js';
+import billingRoutes from './routes/billing.js';
 
 const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
@@ -23,6 +24,7 @@ app.use('/api/scans', scanRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/workspace', workspaceRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

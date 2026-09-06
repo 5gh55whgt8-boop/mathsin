@@ -181,6 +181,22 @@ function Dashboard({ user, stats, onNewScan }) {
   );
 }
 
+function BillingPanel({ billing, onSubscribe, loading, onTicket }) {
+  const trial = billing?.trial;
+  const [subject, setSubject] = useState(''); const [message, setMessage] = useState('');
+  return <div className="dashboard page-enter">
+    <section className="dashboard-hero"><div><Badge tone="aqua">MATHLENS PRO</Badge><h1>Keep scanning without limits.</h1><p>{trial?.expired ? 'Your free trial has ended.' : `${trial?.scansRemaining ?? 3} free scans remaining.`}</p><Button icon="sparkle" loading={loading} onClick={onSubscribe}>Subscribe with Razorpay</Button></div><div className="hero-equation"><small>MONTHLY ACCESS</small><strong>₹{((billing?.price?.amount || 29900) / 100).toFixed(0)}</strong><span>Unlimited scans & AI tools</span></div></section>
+    <section className="panel"><div className="panel-heading"><div><h2>Plan status</h2><p>Secure payments are processed by Razorpay.</p></div><Badge tone={billing?.subscription?.status === 'active' ? 'green' : 'amber'}>{billing?.subscription?.status || 'trialing'}</Badge></div><p className="empty-copy">Free trial: {trial?.scansUsed ?? 0} of {trial?.scanLimit ?? 3} scans used. {trial?.expiresAt ? `Valid until ${new Date(trial.expiresAt).toLocaleDateString()}.` : ''}</p></section>
+    <section className="panel"><div className="panel-heading"><div><h2>Need help?</h2><p>Send a support ticket to the MathLens team.</p></div></div><form className="support-form" onSubmit={async e => { e.preventDefault(); await onTicket(subject, message); setSubject(''); setMessage(''); }}><input required value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject"/><textarea required value={message} onChange={e => setMessage(e.target.value)} placeholder="Describe your query"/><Button type="submit">Send ticket</Button></form></section>
+  </div>;
+}
+
+function AdminPanel({ admin, tickets, onExtend, onTicket }) {
+  const [days, setDays] = useState(7);
+  if (!admin) return <div className="dashboard"><p>Loading admin dashboard…</p></div>;
+  return <div className="dashboard page-enter"><div className="section-heading"><div><Badge tone="aqua">ADMIN PANEL</Badge><h1>Billing & support control</h1><p>Manage trials, subscriptions and customer tickets.</p></div></div><section className="stat-grid"><StatCard label="Total users" value={admin.summary.totalUsers} icon="grid" tone="indigo"/><StatCard label="Active trials" value={admin.summary.trialUsers} icon="scan" tone="aqua"/><StatCard label="Paid users" value={admin.summary.paidUsers} icon="check" tone="amber"/><StatCard label="Open tickets" value={admin.summary.openTickets} icon="file" tone="indigo"/></section><section className="panel admin-table"><div className="panel-heading"><div><h2>Customers</h2><p>Trial, expired and paid account status.</p></div><label>Extend by <select value={days} onChange={e => setDays(Number(e.target.value))}><option value="7">7 days</option><option value="15">15 days</option><option value="30">30 days</option></select></label></div><div className="table-scroll"><table><thead><tr><th>User</th><th>Status</th><th>Usage</th><th>Trial expiry</th><th /></tr></thead><tbody>{admin.users.map(customer => <tr key={customer.id}><td><strong>{customer.name}</strong><small>{customer.email}</small></td><td><Badge tone={customer.subscription?.status === 'active' ? 'green' : customer.trial?.expired ? 'amber' : 'aqua'}>{customer.subscription?.status === 'active' ? 'PAID' : customer.trial?.expired ? 'EXPIRED' : 'TRIAL'}</Badge></td><td>{customer.usage?.scans || 0}/{customer.trial?.scanLimit || 3}</td><td>{customer.trial?.expiresAt ? new Date(customer.trial.expiresAt).toLocaleDateString() : '—'}</td><td><Button variant="secondary" onClick={() => onExtend(customer.id, days)}>Extend trial</Button></td></tr>)}</tbody></table></div></section><section className="panel admin-table"><div className="panel-heading"><div><h2>Support tickets</h2><p>Respond to customer queries.</p></div></div>{tickets?.length ? tickets.map(ticket => <div className="ticket-row" key={ticket._id}><div><strong>{ticket.subject}</strong><small>{ticket.user?.email || 'Customer'} · {ticket.status}</small><p>{ticket.message}</p>{ticket.adminReply ? <p><strong>Reply:</strong> {ticket.adminReply}</p> : null}</div><Button variant="secondary" onClick={() => onTicket(ticket)}>Resolve</Button></div>) : <p className="empty-copy">No support tickets.</p>}</section></div>;
+}
+
 function DocumentWorkspace({
   selected,
   activeTab,
@@ -321,6 +337,11 @@ function App() {
   const [answer, setAnswer] = useState('');
   const [authError, setAuthError] = useState('');
   const [toast, setToast] = useState('');
+  const [view, setView] = useState('dashboard');
+  const [billing, setBilling] = useState(null);
+  const [admin, setAdmin] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const fileInput = useRef(null);
 
   useEffect(() => {
@@ -341,6 +362,14 @@ function App() {
     ]);
     setItems(scanResponse.data.items || []);
     setStats(statsResponse.data);
+    const billingResponse = await api.get('/billing/status').catch(() => ({ data: null }));
+    setBilling(billingResponse.data);
+    if (user?.role === 'admin') await loadAdmin();
+  }
+
+  async function loadAdmin() {
+    const [overview, ticketResponse] = await Promise.all([api.get('/workspace/admin/overview'), api.get('/workspace/tickets')]);
+    setAdmin(overview.data); setTickets(ticketResponse.data.tickets || []);
   }
 
   function notify(message) {
@@ -356,7 +385,9 @@ function App() {
       const { data } = await api.post('/auth/login', { email: email.trim(), password });
       localStorage.setItem('token', data.token);
       setUser(data.user);
-      await loadWorkspace();
+      const [scanResponse, statsResponse, billingResponse] = await Promise.all([api.get('/scans'), api.get('/workspace/stats').catch(() => ({ data: null })), api.get('/billing/status').catch(() => ({ data: null }))]);
+      setItems(scanResponse.data.items || []); setStats(statsResponse.data); setBilling(billingResponse.data);
+      if (data.user.role === 'admin') await loadAdmin();
     } catch (error) {
       setAuthError(error.response?.data?.error || error.message || 'Unable to sign in.');
     } finally {
@@ -370,7 +401,22 @@ function App() {
     setItems([]);
     setStats(null);
     setSelected(null);
+    setView('dashboard'); setBilling(null); setAdmin(null); setTickets([]);
   }
+
+  async function subscribe() {
+    try {
+      setPaymentLoading(true);
+      const { data } = await api.post('/billing/orders');
+      if (!window.Razorpay) { const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; document.body.appendChild(script); await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; }); }
+      const checkout = new window.Razorpay({ key: data.keyId, amount: data.order.amount, currency: data.order.currency, name: data.name, description: data.description, order_id: data.order.id, handler: async response => { await api.post('/billing/verify', response); await loadWorkspace(); notify('Payment verified — Pro access is active.'); }, theme: { color: '#4f46e5' } });
+      checkout.open();
+    } catch (error) { notify(error.response?.data?.error || 'Unable to start checkout.'); } finally { setPaymentLoading(false); }
+  }
+
+  async function extendTrial(userId, days) { try { await api.patch(`/workspace/admin/users/${userId}/trial`, { days }); await loadAdmin(); notify('Trial extended.'); } catch (error) { notify(error.response?.data?.error || 'Could not extend trial.'); } }
+  async function resolveTicket(ticket) { const adminReply = window.prompt('Reply to customer (optional):', ticket.adminReply || ''); if (adminReply === null) return; try { await api.patch(`/workspace/admin/tickets/${ticket._id}`, { status: 'resolved', adminReply }); await loadAdmin(); notify('Ticket resolved.'); } catch { notify('Could not update ticket.'); } }
+  async function createTicket(subject, message) { try { await api.post('/workspace/tickets', { subject, message }); notify('Support ticket sent.'); } catch (error) { notify(error.response?.data?.error || 'Could not send ticket.'); } }
 
   async function upload() {
     if (!file) return;
@@ -487,6 +533,7 @@ function App() {
         </div>
 
         <div className="history-heading"><span>Scan history</span><Badge tone="slate">{items.length}</Badge></div>
+        <div className="sidebar-actions"><Button variant="secondary" onClick={() => { setSelected(null); setView('billing'); }}>Billing</Button>{user.role === 'admin' ? <Button variant="secondary" onClick={() => { setSelected(null); setView('admin'); loadAdmin(); }}>Admin panel</Button> : null}</div>
         <div className="search-box"><Icon name="search" /><input placeholder="Search scans" value={query} onChange={event => setQuery(event.target.value)} /></div>
         <nav className="history-list" aria-label="Scan history">
           {filteredItems.length ? filteredItems.map(item => (
@@ -531,7 +578,7 @@ function App() {
             aiBusy={aiBusy}
             aiOutput={aiOutput}
           />
-        ) : (
+        ) : view === 'billing' ? <BillingPanel billing={billing} onSubscribe={subscribe} loading={paymentLoading} onTicket={createTicket} /> : view === 'admin' && user.role === 'admin' ? <AdminPanel admin={admin} tickets={tickets} onExtend={extendTrial} onTicket={resolveTicket} /> : (
           <Dashboard user={user} stats={stats} onNewScan={() => fileInput.current?.click()} />
         )}
       </main>
