@@ -57,6 +57,34 @@ npm run dev
 
 Backend: `http://localhost:5000`
 
+### Math OCR verification
+
+PDFs are scanned one original-resolution page at a time (up to 12 pages per upload).
+Each visual page gets a transcription and a second source-image review. The server
+checks the source question/option inventory and rejects incomplete JSON or truncated
+provider responses before saving the scan or counting usage. Text and Markdown are
+assembled from the same ordered transcription; mathematical LaTeX is kept separately.
+Unreadable symbols are marked `[illegible]`, and diagrams use labeled text descriptions.
+These checks reduce omissions; they do not guarantee perfect recognition of every source.
+
+`OCR_TIMEOUT_MS` defaults to 90000 per provider request, `OCR_TOTAL_TIMEOUT_MS` to
+540000 for a scan, `OCR_MAX_RETRIES` to 2, and `OCR_CONCURRENCY` to 2 pages. The mobile
+scan upload allows 600000 ms; other API calls retain their normal timeout. Provider
+credits/quota must be available. Daily quota errors stop without repeated retries.
+
+Run offline regression checks from `backend/` with `npm test`. To explicitly run the
+live 40-question source regression (uses provider quota):
+
+```powershell
+node scripts/check-mathsinn.mjs "C:\path\to\mathsinn.pdf"
+```
+
+The live script saves recognized text under the ignored `tmp/` directory and checks
+question numbers 1–40 and four options per question. Inspect its formula samples
+against the original PDF as well; matching question counts alone is not a fidelity test.
+An optional third argument selects a Gemini model for a one-off comparison without
+changing the app configuration. Existing damaged scans need to be scanned again.
+
 ## Run mobile
 
 ```bash

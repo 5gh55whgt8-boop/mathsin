@@ -57,7 +57,7 @@ export default function ScanScreen({ navigation }) {
           Alert.alert('Camera permission needed', 'Allow camera access to scan equations directly.');
           return;
         }
-        result = await ImagePicker.launchCameraAsync({ quality: 0.9 });
+        result = await ImagePicker.launchCameraAsync({ quality: 1 });
       } else {
         if (Platform.OS !== 'web') {
           const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -129,6 +129,7 @@ export default function ScanScreen({ navigation }) {
       const { data } = await api.post(
         asset.kind === 'image' ? '/scans/image' : '/scans/document',
         formData,
+        { timeout: 600000 },
       );
       navigation.navigate('Result', { scan: data.scan });
       setAsset(null);
@@ -220,7 +221,7 @@ export default function ScanScreen({ navigation }) {
               />
               {busy && (
                 <AppText variant="caption" color="muted" style={styles.busyNote}>
-                  PRESERVING EQUATIONS, SYMBOLS AND DOCUMENT STRUCTURE
+                  READING YOUR MATH. MULTI-PAGE DOCUMENTS MAY TAKE SEVERAL MINUTES.
                 </AppText>
               )}
             </Card>

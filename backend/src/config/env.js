@@ -23,6 +23,11 @@ for (const key of required) {
   if (!process.env[key]) console.warn(`[env] Missing ${key}`);
 }
 
+function integerSetting(name, fallback, minimum, maximum) {
+  const value = Number(process.env[name] ?? fallback);
+  return Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, Math.floor(value))) : fallback;
+}
+
 export const env = {
   port: Number(process.env.PORT || 5000),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -37,6 +42,10 @@ export const env = {
   reasoningEffort: process.env.OPENAI_OCR_REASONING_EFFORT || 'high',
   geminiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_OCR_MODEL || 'gemini-3.5-flash',
+  ocrTimeoutMs: integerSetting('OCR_TIMEOUT_MS', 90000, 10000, 180000),
+  ocrMaxRetries: integerSetting('OCR_MAX_RETRIES', 2, 0, 3),
+  ocrConcurrency: integerSetting('OCR_CONCURRENCY', 2, 1, 4),
+  ocrTotalTimeoutMs: integerSetting('OCR_TOTAL_TIMEOUT_MS', 540000, 10000, 540000),
   adminEmail: process.env.ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD,
   adminName: process.env.ADMIN_NAME || 'Administrator',

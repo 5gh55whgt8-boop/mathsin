@@ -9,3 +9,4 @@ uploads/
 backend/storage/scans/
 *.log
 .DS_Store
+/tmp/

@@ -1,9 +1,13 @@
 export function parseJsonLoose(text) {
-  if (!text) throw new Error('Empty AI response');
-  const trimmed = text.trim().replace(/^```json\s*/i, '').replace(/```$/,'').trim();
-  try { return JSON.parse(trimmed); } catch {}
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1));
-  throw new Error('AI response was not valid JSON');
+  // Never repair truncated JSON: that can silently discard whole questions.
+  const trimmed = String(text || '').trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
+  try {
+    const value = JSON.parse(trimmed);
+    if (!value || Array.isArray(value) || typeof value !== 'object') throw new Error();
+    return value;
+  } catch {
+    throw Object.assign(new Error('The scan response was incomplete or invalid. Please retry the scan.'), {
+      code: 'OCR_INVALID_RESPONSE', status: 502
+    });
+  }
 }

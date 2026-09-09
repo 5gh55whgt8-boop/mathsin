@@ -35,6 +35,14 @@ services:
         sync: false
       - key: GEMINI_OCR_MODEL
         value: gemini-3.5-flash
+      - key: OCR_TIMEOUT_MS
+        value: 90000
+      - key: OCR_MAX_RETRIES
+        value: 2
+      - key: OCR_CONCURRENCY
+        value: 2
+      - key: OCR_TOTAL_TIMEOUT_MS
+        value: 540000
       - key: MAX_FILE_SIZE
         value: 20971520
       - key: DB_POOL_MAX

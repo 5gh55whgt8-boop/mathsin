@@ -31,9 +31,9 @@ import {
 import { C, motion, radius, shadows, spacing, type } from '../theme';
 
 const contentTabs = [
-  ['markdown', 'Reconstructed'],
+  ['plainText', 'Text'],
+  ['markdown', 'Markdown'],
   ['latex', 'LaTeX'],
-  ['plainText', 'Plain text'],
 ];
 
 const aiTools = [
@@ -50,7 +50,7 @@ function cleanName(value = 'scan') {
 
 export default function ResultScreen({ route }) {
   const [scan, setScan] = useState(route.params.scan);
-  const [tab, setTab] = useState('markdown');
+  const [tab, setTab] = useState('plainText');
   const [ai, setAi] = useState('');
   const [answer, setAnswer] = useState('');
   const [busyAction, setBusyAction] = useState('');
@@ -68,7 +68,7 @@ export default function ResultScreen({ route }) {
       setAi('');
       const { data } = await api.post('/ai/action', {
         action,
-        content: scan.markdown || scan.plainText || scan.latex,
+        content: scan[tab] || scan.plainText || scan.markdown || scan.latex,
         answer: action === 'check' ? answer : undefined,
       });
       setAi(data.text || 'No answer returned.');
@@ -230,14 +230,18 @@ export default function ResultScreen({ route }) {
 
         <Card style={styles.editorCard}>
           <TextInput
+            accessibilityLabel={`Edit recognized ${contentTabs.find(([key]) => key === tab)?.[1]}`}
             multiline
             value={scan[tab] || ''}
             onChangeText={updateContent}
+            autoCorrect={false}
+            autoCapitalize="none"
+            spellCheck={false}
             placeholder="Recognized content will appear here."
             placeholderTextColor={C.subtle}
             selectionColor={C.primary}
             textAlignVertical="top"
-            style={[styles.editor, tab === 'latex' && styles.monospace]}
+            style={[styles.editor, tab !== 'plainText' && styles.monospace]}
           />
         </Card>
 
@@ -245,16 +249,21 @@ export default function ResultScreen({ route }) {
           <View style={styles.section}>
             <SectionHeader
               title="Detected questions"
-              subtitle={`${scan.questions.length} structured ${scan.questions.length === 1 ? 'question' : 'questions'} found.`}
+              subtitle={`${scan.questions.length} ${scan.questions.length === 1 ? 'question' : 'questions'} found. Edit the transcript above to make corrections.`}
             />
             <Card style={styles.questionList}>
-              {scan.questions.slice(0, 5).map((question, index) => (
+              {scan.questions.map((question, index) => (
                 <View key={`${question.number || index}-${index}`}>
                   <View style={styles.questionRow}>
-                    <Badge label={question.number || String(index + 1)} tone="primary" />
-                    <AppText style={styles.flexCopy} selectable>{question.question || question.latex || 'Question detected'}</AppText>
+                    <Badge label={String(question.number || index + 1)} tone="primary" />
+                    <View style={[styles.flexCopy, styles.questionContent]}>
+                      <AppText selectable>{question.question || question.latex || 'Question detected'}</AppText>
+                      {Array.isArray(question.options) && question.options.map((option, optionIndex) => (
+                        <AppText key={optionIndex} selectable>{String(option)}</AppText>
+                      ))}
+                    </View>
                   </View>
-                  {index < Math.min(scan.questions.length, 5) - 1 && <View style={styles.divider} />}
+                  {index < scan.questions.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
             </Card>
@@ -433,6 +442,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
+  },
+  questionContent: {
+    gap: spacing.xs,
   },
   divider: {
     height: 1,
