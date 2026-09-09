@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { setDefaultResultOrder } from 'dns';
+
+// Brevo IP allow-lists are considerably more practical with the machine's
+// stable public IPv4 address than a privacy-rotating IPv6 address.
+setDefaultResultOrder('ipv4first');
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const smartBillingEnv = path.resolve(configDir, '../../../../store_billing--vivek-vivek/backend/.env');
