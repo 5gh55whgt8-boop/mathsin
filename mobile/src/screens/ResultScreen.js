@@ -125,7 +125,7 @@ export default function ResultScreen({ route }) {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       } else {
         const token = await AsyncStorage.getItem('token');
-        const base = (process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5000/api').replace(/\/$/, '');
+        const base = (process.env.EXPO_PUBLIC_API_URL || 'https://mathlens-ai-api.onrender.com/api').replace(/\/$/, '');
         const destination = FileSystem.cacheDirectory + name;
         const output = await FileSystem.downloadAsync(
           `${base}/exports/${scan._id}/${format}`,

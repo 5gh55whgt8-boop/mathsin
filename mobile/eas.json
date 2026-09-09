@@ -5,12 +5,18 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mathlens-ai-api.onrender.com/api"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mathlens-ai-api.onrender.com/api"
+      },
       "android": {
         "buildType": "app-bundle"
       }
