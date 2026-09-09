@@ -9,7 +9,11 @@ function hashCode(email, code) {
 function senderDetails() {
   const configured = String(env.emailFrom || '').trim();
   const match = configured.match(/^(.*?)\s*<([^>]+)>$/);
-  return match ? { name: match[1].trim() || 'MathLens AI', email: match[2].trim() } : { name: 'MathLens AI', email: configured };
+  if (match) return { name: match[1].trim() || 'MathLens AI', email: match[2].trim() };
+  // Smart Billing's legacy setting contains a display name followed by the
+  // address. Extract the valid address before passing it to Brevo.
+  const email = configured.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
+  return { name: 'MathLens AI', email: email || configured };
 }
 
 async function deliverCode(email, code) {
