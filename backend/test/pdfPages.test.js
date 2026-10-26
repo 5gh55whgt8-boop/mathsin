@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { degrees, PDFDocument, PDFName } from 'pdf-lib';
 import { splitPdfIntoPages, splitPdfPageIntoColumns } from '../src/services/pdfPages.js';
+import { renderPdfPages, findColumnDivider } from '../src/services/pdfImages.js';
+import sharp from 'sharp';
 
 async function fixture(t, configure) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mathlens-pdf-test-'));
@@ -95,4 +97,42 @@ test('malformed, empty, and encrypted PDFs report actionable client errors', asy
     document.context.trailerInfo.Encrypt = document.context.register(document.context.obj({ Filter: PDFName.of('Standard') }));
   });
   await assert.rejects(splitPdfIntoPages(encrypted), { code: 'OCR_ENCRYPTED_PDF', status: 400 });
+});
+
+test('OCR rendering preserves complete pages, bounds resolution and keeps source order', async t => {
+  const file = await fixture(t, document => {
+    document.addPage([600, 800]).drawText('Question one: left and right sides remain visible', { x: 10, y: 400 });
+    document.addPage([5000, 3000]).drawText('Question two', { x: 20, y: 100 });
+  });
+  const result = await renderPdfPages(file);
+  assert.deepEqual(result.map(page => page.sourcePage), [1, 2]);
+  for (const page of result) {
+    assert.equal(page.mimeType, 'image/png');
+    const buffer = Buffer.from(page.data, 'base64');
+    const metadata = await sharp(buffer).metadata();
+    assert.ok(metadata.width <= 2600 && metadata.height <= 2600);
+    assert.ok(metadata.width > 0 && metadata.height > 0);
+    assert.equal(metadata.format, 'png');
+  }
+});
+
+test('cancelled rendering does not block the next PDF', async t => {
+  const file = await fixture(t, document => document.addPage());
+  const controller = new AbortController();
+  controller.abort(new Error('Cancelled by test'));
+  await assert.rejects(renderPdfPages(file, controller.signal), /Cancelled by test/);
+  assert.equal((await renderPdfPages(file)).length, 1);
+});
+
+test('column detection keeps blank and full-width pages whole; recognises ruled columns', async t => {
+  const blank = await sharp({ create: { width: 600, height: 800, channels: 3, background: 'white' } }).png().toBuffer();
+  assert.equal(await findColumnDivider(blank), null);
+  const file = await fixture(t, document => {
+    const page = document.addPage([600, 800]);
+    page.drawLine({ start: { x: 300, y: 20 }, end: { x: 300, y: 780 }, thickness: 1 });
+    page.drawText('Question left', { x: 30, y: 400 });
+    page.drawText('Question right', { x: 340, y: 400 });
+  });
+  const regions = await renderPdfPages(file);
+  assert.deepEqual(regions.map(region => region.pageNumber), ['1-left', '1-right']);
 });

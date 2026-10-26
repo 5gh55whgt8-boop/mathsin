@@ -11,6 +11,7 @@ import aiRoutes from './routes/ai.js';
 import exportRoutes from './routes/exports.js';
 import workspaceRoutes from './routes/workspace.js';
 import billingRoutes from './routes/billing.js';
+import { errorResponse } from './middleware/errors.js';
 
 const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
@@ -26,11 +27,7 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/billing', billingRoutes);
 
-app.use((err, req, res, next) => {
-  console.error(err);
-  if (err?.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'File too large' });
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+app.use(errorResponse);
 
 await connectDb();
 await ensureAdmin();

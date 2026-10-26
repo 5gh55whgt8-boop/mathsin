@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import { parseJsonLoose } from '../src/utils/json.js';
-import { formatTranscript, validateTranscript, validateReview, mergePageResults } from '../src/services/ocrFormat.js';
+import { formatTranscript, validateTranscript, validateReview, mergePageResults, applyReview } from '../src/services/ocrFormat.js';
 import { createAiService, readGeminiResponse, readOpenAIResponse } from '../src/services/openai.js';
 
 function transcript(number = '11') {
@@ -132,7 +132,7 @@ test('visual scan performs a second source reading before returning corrected te
     requests.push(body);
     const value = transcript();
     if (requests.length === 1) value.items[1].text = '~[(~p ∨ q) → ~p] ≡';
-    return reply(value);
+    return reply(requests.length === 1 ? value : { ...value, matches: false });
   } });
   const result = await service.scanImage(source, 'image/png');
   assert.equal(requests.length, 2);
@@ -140,6 +140,25 @@ test('visual scan performs a second source reading before returning corrected te
   assert.ok(requests[1].contents[0].parts.at(-1).text.includes('SECOND READING'));
   assert.equal(requests[1].contents[0].parts[0].inlineData.data, requests[0].contents[0].parts[0].inlineData.data);
   assert.equal(requests[0].generationConfig.mediaResolution, 'MEDIA_RESOLUTION_HIGH');
+});
+
+test('compact audit preserves unchanged content and rejects missing inventory', () => {
+  const draft = transcript();
+  assert.deepEqual(applyReview(draft, { matches: true, inventory: draft.inventory, items: [], warnings: [] }), draft);
+  assert.throws(() => applyReview(draft, { matches: true, inventory: [], items: [], warnings: [] }), { code: 'OCR_COVERAGE' });
+});
+
+test('model fallback handles daily quota without waiting or changing credentials', async () => {
+  const urls = [];
+  const service = createAiService({ config: { ...config, geminiFallbackModels: ['backup-model'] }, fetchImpl: async (url, request) => {
+    urls.push(url);
+    assert.equal(request.headers['x-goog-api-key'], config.geminiKey);
+    return url.includes('backup-model') ? reply(transcript()) : {
+      ok: false, status: 429, json: async () => ({ error: { details: [{ violations: [{ quotaId: 'RequestsPerDay' }] }] } })
+    };
+  } });
+  assert.equal((await service.scanText('test')).model, 'backup-model');
+  assert.equal(urls.length, 2);
 });
 
 test('a failed PDF page stops queued pages and never returns a partial scan', async t => {
@@ -188,4 +207,23 @@ test('overall deadline aborts an in-flight provider request', async () => {
     request.signal.addEventListener('abort', () => reject(request.signal.reason), { once: true });
   }) });
   await assert.rejects(service.scanText('source'), { code: 'OCR_TIMEOUT', status: 504 });
+});
+
+test('minute rate limit waits for reset on primary before falling back', async () => {
+  const urls = [], delays = [];
+  const service = createAiService({ config: { ...config, ocrMaxRetries: 1, geminiFallbackModels: ['backup'] },
+    sleep: async ms => { delays.push(ms); },
+    fetchImpl: async url => {
+      urls.push(url);
+      if (urls.length === 1) return { ok: false, status: 429, json: async () => ({ error: { details: [
+        { violations: [{ quotaId: 'RequestsPerMinute' }] },
+        { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '2s' }
+      ] } }) };
+      return reply(transcript());
+    }
+  });
+  assert.equal((await service.scanText('source')).model, config.geminiModel);
+  assert.equal(urls.length, 2);
+  assert.ok(urls.every(url => !url.includes('backup')));
+  assert.ok(delays[0] >= 2000 && delays[0] <= 3000);
 });

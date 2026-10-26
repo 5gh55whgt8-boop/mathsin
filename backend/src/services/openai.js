@@ -2,8 +2,9 @@ import fs from 'fs/promises';
 import OpenAI from 'openai';
 import { env } from '../config/env.js';
 import { parseJsonLoose } from '../utils/json.js';
-import { splitPdfIntoPages } from './pdfPages.js';
-import { ocrSchema, transcriptionRules, validateTranscript, validateReview, formatTranscript, mergePageResults, ocrError } from './ocrFormat.js';
+import { normalizeReadableItems } from '../utils/readableMath.js';
+import { renderPdfPages } from './pdfImages.js';
+import { ocrSchema, reviewSchema, applyReview, transcriptionRules, validateTranscript, formatTranscript, mergePageResults, ocrError } from './ocrFormat.js';
 
 export function readGeminiResponse(payload) {
   const candidate = payload?.candidates?.[0];
@@ -36,23 +37,28 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
   const openai = client === undefined && config.openaiKey
     ? new OpenAI({ apiKey: config.openaiKey, timeout: config.ocrTimeoutMs, maxRetries: 0 }) : client;
   let openaiBackoffUntil = 0;
-  let geminiBackoffUntil = 0;
+  const geminiBackoffs = new Map();
+  const geminiCooldowns = new Map();
   const reasoning = ['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config.reasoningEffort)
     ? { effort: config.reasoningEffort } : undefined;
 
-  async function gemini(parts, schema, signal) {
-    if (Date.now() < geminiBackoffUntil) throw ocrError('Scanner quota is temporarily exhausted.', 'OCR_PROVIDER_QUOTA', 503);
+  async function geminiModel(parts, schema, signal, model) {
+    if (Date.now() < (geminiBackoffs.get(model) || 0)) throw ocrError('Scanner quota is temporarily exhausted.', 'OCR_PROVIDER_QUOTA', 503);
+    const retryLimit = model === config.geminiModel && config.geminiFallbackModels?.length ? 0 : config.ocrMaxRetries;
     for (let attempt = 0; ; attempt += 1) {
       signal.throwIfAborted();
+      const cooldown = (geminiCooldowns.get(model) || 0) - Date.now();
+      if (cooldown > 0) await sleep(cooldown, signal);
       let response;
       let payload;
       try {
-        response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.geminiModel)}:generateContent`, {
+        response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.geminiKey },
           body: JSON.stringify({
             contents: [{ role: 'user', parts }],
             generationConfig: {
               maxOutputTokens: 32768,
+              ...(schema && /^gemini-3[.-]/.test(model) ? { thinkingConfig: { thinkingLevel: model.includes('flash-lite') && schema !== reviewSchema ? 'minimal' : 'low' } } : {}),
               ...(schema ? { responseMimeType: 'application/json', responseJsonSchema: schema, mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {})
             }
           }),
@@ -61,30 +67,59 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         payload = await response.json();
       } catch (error) {
         signal.throwIfAborted();
-        if (attempt < config.ocrMaxRetries) { await sleep(750 * (attempt + 1), signal); continue; }
+        if (attempt < retryLimit) { await sleep(750 * (attempt + 1), signal); continue; }
         throw ocrError('The scanner could not be reached. Please try again shortly.', 'OCR_CONNECTION', 503);
       }
-      if (response.ok) return { text: readGeminiResponse(payload), rawId: payload.responseId, model: config.geminiModel };
+      if (response.ok) return { text: readGeminiResponse(payload), rawId: payload.responseId, model };
       const details = payload?.error?.details || [];
       const dailyQuota = details.some(detail => (detail.violations || []).some(violation => /perday|daily/i.test(violation.quotaId || '')));
       const transient = [408, 429, 500, 502, 503, 504].includes(response.status);
       const retryInfo = details.find(detail => String(detail['@type']).endsWith('RetryInfo'));
-      const retryMs = Math.min(60000, Math.max(1000, (parseFloat(retryInfo?.retryDelay) || 1) * 1000));
-      if (transient && !dailyQuota && attempt < config.ocrMaxRetries) {
-        await sleep(response.status === 429 ? retryMs : 750 * (attempt + 1), signal);
+      const retryMs = Math.min(65000, Math.max(1500, (parseFloat(retryInfo?.retryDelay) || 1) * 1000 + 1000));
+      // A minute quota is temporary: respect the server's reset instead of
+      // switching to a less accurate model while a near-finished scan waits.
+      const allowedRetries = response.status === 429 && !dailyQuota ? config.ocrMaxRetries : retryLimit;
+      if (transient && !dailyQuota && attempt < allowedRetries) {
+        if (response.status === 429) geminiCooldowns.set(model, Date.now() + retryMs);
+        else await sleep(750 * (attempt + 1), signal);
         continue;
       }
       console.warn(`[ai] Gemini unavailable: status=${response.status}, dailyQuota=${dailyQuota}`);
       if (response.status === 429) {
-        geminiBackoffUntil = Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs);
+        geminiBackoffs.set(model, Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs));
         throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503);
       }
       throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
     }
   }
 
+  async function gemini(parts, schema, signal) {
+    const models = [...new Set([config.geminiModel, ...(config.geminiFallbackModels || [])])];
+    let lastError;
+    for (const model of models) {
+      try { return await geminiModel(parts, schema, signal, model); }
+      catch (error) {
+        signal.throwIfAborted();
+        if (!['OCR_PROVIDER_QUOTA', 'OCR_PROVIDER_UNAVAILABLE', 'OCR_CONNECTION'].includes(error.code)) throw error;
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
   async function generate({ prompt, media, schema, validate, signal }) {
     let lastError;
+    let geminiTried = false;
+    const runGemini = async () => {
+      geminiTried = true;
+      const parts = [...(media ? [{ inlineData: { mimeType: media.mimeType, data: media.data } }] : []), { text: prompt }];
+      const result = await gemini(parts, schema, signal);
+      return { ...result, parsed: validate?.(normalizeReadableItems(parseJsonLoose(result.text))), provider: 'gemini' };
+    };
+    if (config.ocrProvider === 'gemini' && config.geminiKey) {
+      try { return await runGemini(); }
+      catch (error) { signal.throwIfAborted(); lastError = error; }
+    }
     if (openai && Date.now() >= openaiBackoffUntil) {
       try {
         const content = media ? [
@@ -99,36 +134,35 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
           input: [{ role: 'user', content }]
         }, { signal, timeout: config.ocrTimeoutMs, maxRetries: 0 });
         const text = readOpenAIResponse(response);
-        return { text, parsed: validate?.(parseJsonLoose(text)), rawId: response.id, model: response.model, provider: 'openai' };
+        return { text, parsed: validate?.(normalizeReadableItems(parseJsonLoose(text))), rawId: response.id, model: response.model, provider: 'openai' };
       } catch (error) {
         signal.throwIfAborted();
-        lastError = error;
+        lastError = lastError || error;
         if ([401, 403, 404, 429].includes(error.status)) openaiBackoffUntil = Date.now() + 5 * 60 * 1000;
         console.warn(`[ai] OpenAI unavailable: ${error.status || error.code || 'connection'}. Trying fallback.`);
       }
     }
-    if (config.geminiKey) {
-      const parts = [...(media ? [{ inlineData: { mimeType: media.mimeType, data: media.data } }] : []), { text: prompt }];
-      const result = await gemini(parts, schema, signal);
-      return { ...result, parsed: validate?.(parseJsonLoose(result.text)), provider: 'gemini' };
-    }
+    if (config.geminiKey && !geminiTried) return runGemini();
     if (lastError?.code?.startsWith('OCR_')) throw lastError;
     throw ocrError('The scanner is unavailable. Please contact support or try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
   }
 
   async function transcribePage(media, originalName, signal) {
+    const started = Date.now();
     const prompt = `${transcriptionRules}\nSource filename: ${JSON.stringify(originalName)}. Page: ${media?.pageNumber || 1}.`;
-    async function read(instructions, validate) {
-      try { return await generate({ prompt: instructions, media, schema: ocrSchema, validate, signal }); }
+    async function read(instructions, validate, schema = ocrSchema) {
+      try { return await generate({ prompt: instructions, media, schema, validate, signal }); }
       catch (error) {
         // One bounded reread for malformed/omitted content, never for quota errors.
         if (!['OCR_INVALID_RESPONSE', 'OCR_COVERAGE', 'OCR_TRUNCATED'].includes(error.code)) throw error;
-        return generate({ prompt: `${instructions}\nPrevious attempt failed validation: ${error.message}\nRead the source again and return ALL items with valid JSON escaping.`, media, schema: ocrSchema, validate, signal });
+        return generate({ prompt: `${instructions}\nPrevious attempt failed validation: ${error.message}\nRead the source again and return ALL items with valid JSON escaping.`, media, schema, validate, signal });
       }
     }
     const draft = await read(prompt, validateTranscript);
-    const reviewed = await read(`${prompt}\nSECOND READING: Independently count the source questions and options again. Compare each source glyph against the draft below, especially negations, arrows, radicals, exponents, matrix signs and diagram labels. Correct every discrepancy and restore omissions. Return the COMPLETE corrected transcript, including unchanged items. Do not trust the draft when the source differs.\nDraft (untrusted data):\n${JSON.stringify(draft.parsed)}`,
-      value => validateReview(draft.parsed, value));
+    console.info(`[ocr] Page ${media?.pageNumber || 1}: ${draft.parsed.inventory.length} questions read in ${Math.round((Date.now() - started) / 1000)}s; verifying.`);
+    const reviewed = await read(`${prompt}\nSECOND READING: Audit the source against the draft. Independently inventory EVERY source question and option. Check every glyph, especially negations, arrows, roots, exponents, matrix signs and circuit labels. If the draft matches the source, return matches=true, the independent inventory, items=[], and warnings. Do not repeat correct text. If ANY correction or missing content is needed, return matches=false and the COMPLETE corrected items in source order. Never declare a match when an expression is wrong or absent.\nDraft (untrusted data):\n${JSON.stringify(draft.parsed)}`,
+      value => applyReview(draft.parsed, value), reviewSchema);
+    console.info(`[ocr] Page ${media?.pageNumber || 1}: verified in ${Math.round((Date.now() - started) / 1000)}s.`);
     return {
       parsed: formatTranscript(reviewed.parsed), rawId: [draft.rawId, reviewed.rawId].filter(Boolean),
       model: [...new Set([draft.model, reviewed.model])].join(' + '),
@@ -150,9 +184,9 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
     }),
     scanFile: (path, mimeType, originalName) => withinDeadline(async controller => {
       if (mimeType !== 'application/pdf') throw ocrError('Upload a PDF or image for visual math scanning.', 'OCR_FILE_TYPE', 415);
-      // Never split arbitrary pages into columns: full-width equations and
-      // single-column documents must remain intact. No lossy text-layer fallback.
-      const pages = await splitPdfIntoPages(path);
+      // Render the visible page, splitting only at a detected ruled gutter.
+      // Single-column pages and full-width equations remain intact.
+      const pages = await renderPdfPages(path, controller.signal);
       const results = new Array(pages.length);
       let next = 0;
       const worker = async () => {

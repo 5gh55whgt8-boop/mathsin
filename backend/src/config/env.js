@@ -42,6 +42,8 @@ export const env = {
   reasoningEffort: process.env.OPENAI_OCR_REASONING_EFFORT || 'high',
   geminiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_OCR_MODEL || 'gemini-3.5-flash',
+  ocrProvider: process.env.OCR_PROVIDER || 'gemini',
+  geminiFallbackModels: (process.env.GEMINI_OCR_FALLBACK_MODELS ?? 'gemini-3.5-flash-lite').split(',').map(value => value.trim()).filter(Boolean),
   ocrTimeoutMs: integerSetting('OCR_TIMEOUT_MS', 90000, 10000, 180000),
   ocrMaxRetries: integerSetting('OCR_MAX_RETRIES', 2, 0, 3),
   ocrConcurrency: integerSetting('OCR_CONCURRENCY', 2, 1, 4),

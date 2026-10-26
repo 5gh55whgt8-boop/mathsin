@@ -7,7 +7,20 @@ import { env } from '../src/config/env.js';
 const source = process.argv[2];
 if (!source) throw new Error('Usage: node scripts/check-mathsinn.mjs <path-to-mathsinn.pdf>');
 const started = Date.now();
-const service = createAiService({ config: process.argv[3] ? { ...env, openaiKey: undefined, geminiModel: process.argv[3] } : env });
+const runDir = path.resolve('../tmp', `ocr-run-${Date.now()}`);
+await fs.mkdir(runDir, { recursive: true });
+let requestNumber = 0;
+const diagnosticFetch = async (url, options) => {
+  const number = ++requestNumber;
+  const response = await fetch(url, options);
+  const payload = await response.clone().json();
+  // Store only provider response, never request headers or credentials.
+  await fs.writeFile(path.join(runDir, `response-${number}.json`), JSON.stringify(payload, null, 2));
+  console.log(`[test] Request ${number}: HTTP ${response.status}; ${payload.candidates?.[0]?.finishReason || payload.error?.status || ''}`);
+  return response;
+};
+console.log(`[test] Diagnostics: ${runDir}`);
+const service = createAiService({ fetchImpl: diagnosticFetch, config: process.argv[3] ? { ...env, openaiKey: undefined, geminiModel: process.argv[3], geminiFallbackModels: [] } : env });
 try {
   const result = await service.scanFile(source, 'application/pdf', path.basename(source));
   const output = path.resolve('../tmp/ocr-mathsinn-result.json');
@@ -19,7 +32,7 @@ try {
   const complete = JSON.stringify(numbers) === JSON.stringify(expected) && questions.every(question => question.options.length === 4);
   console.log(JSON.stringify({ output, seconds: Math.round((Date.now() - started) / 1000), provider: result.provider,
     questionCount: questions.length, complete40With4Options: complete, numbers, warnings: result.parsed.warnings,
-    samples: questions.filter(question => ['3', '11', '12', '17', '18', '20', '22', '29', '30', '35', '39'].includes(String(question.number)))
+    samples: questions.filter(question => ['3', '11', '12', '17', '18', '20', '22', '29', '30', '35', '39'].includes(String(question.number).replace(/[.)]$/, '')))
   }, null, 2));
   if (!complete) process.exitCode = 1;
 } catch (error) {

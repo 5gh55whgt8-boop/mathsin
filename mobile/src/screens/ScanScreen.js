@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../api/client';
+import { scanErrorMessage } from '../api/scanError';
 import {
   AppText,
   Badge,
@@ -111,7 +112,7 @@ export default function ScanScreen({ navigation }) {
   }
 
   async function upload() {
-    if (!asset) return;
+    if (!asset || busy) return;
     try {
       setBusy(true);
       const formData = new FormData();
@@ -135,7 +136,8 @@ export default function ScanScreen({ navigation }) {
       setAsset(null);
     } catch (error) {
       console.error('SCAN ERROR', error.response?.data || error.message);
-      Alert.alert('Scan failed', error.response?.data?.error || error.message);
+      const failure = scanErrorMessage(error);
+      Alert.alert(failure.title, failure.message);
     } finally {
       setBusy(false);
     }

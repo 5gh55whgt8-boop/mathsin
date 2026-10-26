@@ -16,6 +16,8 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@hyzyla/pdfium": "2.1.13",
+    "sharp": "0.35.4",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",

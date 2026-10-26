@@ -59,8 +59,13 @@ Backend: `http://localhost:5000`
 
 ### Math OCR verification
 
-PDFs are scanned one original-resolution page at a time (up to 12 pages per upload).
-Each visual page gets a transcription and a second source-image review. The server
+PDFs are rendered locally to PNG at up to 216 DPI / 2600 pixels on the long edge
+(up to 12 pages per upload). Rendering is serialized to bound memory on the free
+server. A ruled two-column layout is separated only when its divider and clear
+gutters are detected; other pages stay whole. The images are internal OCR inputs,
+not substitutes for the editable output.
+Each region gets a transcription and a compact second source-image review. Correct
+text is not regenerated in the review; a mismatch returns corrected content. The server
 checks the source question/option inventory and rejects incomplete JSON or truncated
 provider responses before saving the scan or counting usage. Text and Markdown are
 assembled from the same ordered transcription; mathematical LaTeX is kept separately.
@@ -70,7 +75,13 @@ These checks reduce omissions; they do not guarantee perfect recognition of ever
 `OCR_TIMEOUT_MS` defaults to 90000 per provider request, `OCR_TOTAL_TIMEOUT_MS` to
 540000 for a scan, `OCR_MAX_RETRIES` to 2, and `OCR_CONCURRENCY` to 2 pages. The mobile
 scan upload allows 600000 ms; other API calls retain their normal timeout. Provider
-credits/quota must be available. Daily quota errors stop without repeated retries.
+credits/quota must be available. Minute rate limits respect the provider reset time;
+daily quota errors skip repeated retries and try the configured fallback model.
+`OCR_PROVIDER=gemini` is the default, with OpenAI as a secondary provider.
+`GEMINI_OCR_FALLBACK_MODELS` defaults to `gemini-3.5-flash-lite` (comma-separated;
+set empty to disable). All providers being unavailable still prevents a scan; the
+app never fabricates a successful result. Common accidental LaTeX in readable text
+is converted locally while unknown notation is rejected instead of silently erased.
 
 Run offline regression checks from `backend/` with `npm test`. To explicitly run the
 live 40-question source regression (uses provider quota):
@@ -79,7 +90,8 @@ live 40-question source regression (uses provider quota):
 node scripts/check-mathsinn.mjs "C:\path\to\mathsinn.pdf"
 ```
 
-The live script saves recognized text under the ignored `tmp/` directory and checks
+The live script saves recognized text and response diagnostics under the ignored `tmp/`
+directory (no request headers or credentials) and checks
 question numbers 1–40 and four options per question. Inspect its formula samples
 against the original PDF as well; matching question counts alone is not a fidelity test.
 An optional third argument selects a Gemini model for a one-off comparison without
