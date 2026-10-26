@@ -22,11 +22,12 @@ async function atlasUriWithPublicDns(uri) {
   return `mongodb://${parsed.username}:${parsed.password}@${hosts}${parsed.pathname}?${parsed.searchParams}`;
 }
 
-export async function connectDb() {
+export async function connectDb(options = {}) {
   if (!env.mongoUri) throw new Error('MONGODB_URI/MONGO_URI missing');
   mongoose.set('strictQuery', true);
   const uri = await atlasUriWithPublicDns(env.mongoUri);
   await mongoose.connect(uri, {
+    ...options,
     maxPoolSize: env.poolMax,
     serverSelectionTimeoutMS: 15000
   });

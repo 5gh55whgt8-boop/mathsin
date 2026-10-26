@@ -148,6 +148,43 @@ test('compact audit preserves unchanged content and rejects missing inventory', 
   assert.throws(() => applyReview(draft, { matches: true, inventory: [], items: [], warnings: [] }), { code: 'OCR_COVERAGE' });
 });
 
+test('PDF retry reuses durable completed pages and only requests missing pages', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mathlens-resume-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const pdf = await PDFDocument.create();
+  pdf.addPage(); pdf.addPage();
+  const file = path.join(directory, 'two.pdf');
+  await fs.writeFile(file, await pdf.save());
+  const completed = {};
+  let calls = 0;
+  const first = createAiService({ config: { ...config, ocrConcurrency: 1 }, fetchImpl: async () => {
+    calls++;
+    if (calls > 2) return { ok: false, status: 503, json: async () => ({}) };
+    const value = transcript('1');
+    return reply(calls === 1 ? value : { matches: true, inventory: value.inventory, items: [], warnings: [] });
+  } });
+  await assert.rejects(first.scanFile(file, 'application/pdf', 'two.pdf', { onCompleted: async (index, result) => { completed[index] = JSON.parse(JSON.stringify(result)); } }));
+  assert.deepEqual(Object.keys(completed), ['0']);
+  let resumedCalls = 0;
+  const resumed = createAiService({ config: { ...config, ocrConcurrency: 1 }, fetchImpl: async () => {
+    const value = transcript('2');
+    return reply(++resumedCalls === 1 ? value : { matches: true, inventory: value.inventory, items: [], warnings: [] });
+  } });
+  const result = await resumed.scanFile(file, 'application/pdf', 'two.pdf', { completed });
+  assert.equal(resumedCalls, 2);
+  assert.deepEqual(result.parsed.questions.map(q => q.number), ['1', '2']);
+});
+
+test('Gemini outage falls back to independent OpenAI provider', async () => {
+  let backups = 0;
+  const service = createAiService({ config: { ...config, ocrProvider: 'gemini' },
+    fetchImpl: async () => ({ ok: false, status: 503, json: async () => ({}) }),
+    client: { responses: { create: async () => { backups++; return { status: 'completed', output_text: JSON.stringify(transcript()), model: 'backup' }; } } }
+  });
+  assert.equal((await service.scanText('source')).provider, 'openai');
+  assert.equal(backups, 1);
+});
+
 test('model fallback handles daily quota without waiting or changing credentials', async () => {
   const urls = [];
   const service = createAiService({ config: { ...config, geminiFallbackModels: ['backup-model'] }, fetchImpl: async (url, request) => {

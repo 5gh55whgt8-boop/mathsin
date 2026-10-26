@@ -160,3 +160,29 @@ The backend now tries OpenAI first and automatically falls back to Gemini when O
 - PDF/DOCX exports include the original photo, AI-recognized content, provider/model details, and LaTeX when available.
 - Web downloads directly; Android/iOS uses the native share sheet.
 - Existing scans made before v4.1 may export AI text only because their original image was not retained by older builds.
+# Durable PDF scanning
+
+PDF uploads now run as MongoDB-backed jobs with the original input in GridFS.
+Completed page/column transcripts are checkpointed and reused on retry. New
+mobile clients submit `POST /api/scans/jobs` and poll the owner-scoped job URL;
+installed clients using `/scans/document` also enqueue durable work while waiting
+for their legacy response. If a connection drops, check History before reuploading.
+
+The worker processes one job per server process, leases jobs for 15 minutes,
+reclaims expired leases after restarts, and retries temporary provider failures
+with 1-minute to 1-hour backoff for up to 24 hours. Free Render instances can
+sleep: jobs remain stored but resume only when the service is awake. This is not
+an always-on background worker guarantee. One outstanding PDF per account is
+allowed; identical active uploads reuse that job. Final scan publication and
+usage increment share an Atlas transaction. Failed attempts do not consume scans.
+Inputs/checkpoints are deleted after completion or terminal failure; interrupted
+cleanup is retried on the next worker tick. Job metadata remains for status lookup.
+
+Gemini model fallbacks are followed by the independent OpenAI provider using
+`OPENAI_API_KEY` and `OPENAI_OCR_MODEL`. Both need usable credentials and quota;
+exhausted credits cannot be bypassed by the queue. No billing is changed by this
+code. Deploy backend changes first, then rebuild the APK for progress/polling UI.
+
+Run `node scripts/check-scan-queue.mjs <mathsinn.pdf>` from `backend` for the
+explicit provider-backed 40-question regression. It uses a separate test database
+and deletes only its own test records. Unit tests do not call paid providers.

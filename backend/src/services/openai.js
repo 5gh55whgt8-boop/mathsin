@@ -182,18 +182,25 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
       const data = await fs.readFile(path, 'base64');
       return transcribePage({ data, mimeType }, 'image-scan', controller.signal);
     }),
-    scanFile: (path, mimeType, originalName) => withinDeadline(async controller => {
+    scanFile: (path, mimeType, originalName, checkpoints = {}) => withinDeadline(async controller => {
       if (mimeType !== 'application/pdf') throw ocrError('Upload a PDF or image for visual math scanning.', 'OCR_FILE_TYPE', 415);
       // Render the visible page, splitting only at a detected ruled gutter.
       // Single-column pages and full-width equations remain intact.
       const pages = await renderPdfPages(path, controller.signal);
+      await checkpoints.onPrepared?.(pages.length);
       const results = new Array(pages.length);
       let next = 0;
       const worker = async () => {
         while (next < pages.length) {
           controller.signal.throwIfAborted();
           const index = next++;
-          try { results[index] = await transcribePage(pages[index], originalName, controller.signal); }
+          try {
+            results[index] = checkpoints.completed?.[index];
+            if (!results[index]) {
+              results[index] = await transcribePage(pages[index], originalName, controller.signal);
+              await checkpoints.onCompleted?.(index, results[index]);
+            }
+          }
           catch (error) { controller.abort(error); throw error; }
         }
       };

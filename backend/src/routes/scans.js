@@ -8,8 +8,10 @@ import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import mammoth from 'mammoth';
-import { scanFile, scanImage, scanText } from '../services/openai.js';
+import { scanImage, scanText } from '../services/openai.js';
 import { hasScanAccess, trialState } from '../services/entitlements.js';
+import ScanJob from '../models/ScanJob.js';
+import { enqueuePdf, jobView, kickScanQueue } from '../services/scanQueue.js';
 
 const uploadDir = path.resolve('uploads');
 const scanStorageDir = path.resolve('storage/scans');
@@ -18,6 +20,34 @@ await fs.mkdir(scanStorageDir, { recursive: true });
 const upload = multer({ dest: uploadDir, limits: { fileSize: env.maxFileSize } });
 const router = Router();
 router.use(requireAuth);
+
+router.get('/jobs', async (req, res, next) => {
+  try {
+    const jobs = await ScanJob.find({ user: req.user._id, active: true }).sort({ createdAt: -1 }).limit(1);
+    res.json({ jobs: jobs.map(jobView) });
+    kickScanQueue();
+  } catch (error) { next(error); }
+});
+router.get('/jobs/:id', async (req, res, next) => {
+  try {
+    if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ error: 'Invalid job id' });
+    const job = await ScanJob.findOne({ _id: req.params.id, user: req.user._id });
+    if (!job) return res.status(404).json({ error: 'Scan job not found' });
+    const scan = job.scan ? await Scan.findOne({ _id: job.scan, user: req.user._id }) : undefined;
+    res.json({ job: jobView(job), scan });
+    kickScanQueue();
+  } catch (error) { next(error); }
+});
+router.post('/jobs', requireScanAccess, upload.single('file'), async (req, res, next) => {
+  if (!req.file) return res.status(400).json({ error: 'file required' });
+  try {
+    if (req.file.mimetype !== 'application/pdf') return res.status(415).json({ error: 'PDF required for background scanning' });
+    const job = await enqueuePdf(req.user, req.file);
+    res.status(202).json({ job: jobView(job) });
+    kickScanQueue();
+  } catch (error) { next(error); }
+  finally { fs.unlink(req.file.path).catch(() => {}); }
+});
 
 function requireScanAccess(req, res, next) {
   if (hasScanAccess(req.user)) return next();
@@ -82,7 +112,20 @@ router.post('/document', requireScanAccess, upload.single('file'), async (req, r
     if (!allowed.has(req.file.mimetype)) return res.status(415).json({ error: 'PDF, DOCX or TXT required' });
     let result;
     if (req.file.mimetype === 'application/pdf') {
-      result = await scanFile(req.file.path, req.file.mimetype, req.file.originalname);
+      // Installed APKs still expect a synchronous response. Their work now
+      // survives HTTP disconnects too; new clients poll /jobs instead.
+      const queued = await enqueuePdf(req.user, req.file);
+      kickScanQueue();
+      const deadline = Date.now() + 8 * 60000;
+      while (!res.destroyed && Date.now() < deadline) {
+        const job = await ScanJob.findOne({ _id: queued._id, user: req.user._id });
+        if (job.status === 'completed') return res.status(201).json({ scan: await Scan.findOne({ _id: job.scan, user: req.user._id }) });
+        if (job.status === 'failed') return res.status(422).json({ code: job.errorCode, error: job.message });
+        if (job.status === 'waiting') break;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      if (!res.destroyed) return res.status(503).json({ code: 'OCR_JOB_PENDING', jobId: String(queued._id), error: 'Your PDF is saved in the scan queue. Completed pages are safe and retry is automatic. Check History later; do not upload it again.' });
+      return;
     } else if (req.file.mimetype === 'text/plain') {
       const text = await fs.readFile(req.file.path, 'utf8');
       result = await scanText(text, req.file.originalname);

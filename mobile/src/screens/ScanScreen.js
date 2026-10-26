@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -48,6 +48,49 @@ const sources = [
 export default function ScanScreen({ navigation }) {
   const [asset, setAsset] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const restore = () => {
+      api.get('/scans/jobs').then(({ data }) => {
+        if (!cancelled && data.jobs?.[0]) setJob(data.jobs[0]);
+      }).catch(() => {});
+    };
+    restore();
+    const unsubscribe = navigation.addListener('focus', restore);
+    return () => { cancelled = true; unsubscribe(); };
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!job?.id) return;
+    let cancelled = false;
+    let timer;
+    const poll = async () => {
+      try {
+        const { data } = await api.get(`/scans/jobs/${job.id}`);
+        if (cancelled) return;
+        if (data.job.status === 'completed') {
+          setJob(null);
+          if (data.scan) navigation.navigate('Result', { scan: data.scan });
+          return;
+        }
+        if (data.job.status === 'failed') {
+          setJob(null);
+          Alert.alert('Scan could not complete', data.job.message);
+          return;
+        }
+        setJob(data.job);
+      } catch (error) {
+        if (cancelled) return;
+        if ([401, 404].includes(error.response?.status)) { setJob(null); return; }
+        // An offline phone must not cancel or resubmit the server's job.
+      }
+      if (!cancelled) timer = setTimeout(poll, 5000);
+    };
+    poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [job?.id, navigation]);
 
   async function image(camera = false) {
     try {
@@ -112,7 +155,7 @@ export default function ScanScreen({ navigation }) {
   }
 
   async function upload() {
-    if (!asset || busy) return;
+    if (!asset || busy || job) return;
     try {
       setBusy(true);
       const formData = new FormData();
@@ -127,12 +170,14 @@ export default function ScanScreen({ navigation }) {
         });
       }
 
+      const isPdf = asset.mimeType === 'application/pdf' || /\.pdf$/i.test(asset.name || asset.fileName || '');
       const { data } = await api.post(
-        asset.kind === 'image' ? '/scans/image' : '/scans/document',
+        isPdf ? '/scans/jobs' : asset.kind === 'image' ? '/scans/image' : '/scans/document',
         formData,
         { timeout: 600000 },
       );
-      navigation.navigate('Result', { scan: data.scan });
+      if (data.job) setJob(data.job);
+      else navigation.navigate('Result', { scan: data.scan });
       setAsset(null);
     } catch (error) {
       console.error('SCAN ERROR', error.response?.data || error.message);
@@ -148,6 +193,7 @@ export default function ScanScreen({ navigation }) {
   return (
     <Screen>
       <ScrollScreen>
+        {job && <Card><AppText variant="headline">PDF scan: {job.status}</AppText><Muted>{job.completed} / {job.total || '?'} sections saved. You can leave this screen; find the finished scan in History.</Muted>{job.message ? <Muted>{job.message}</Muted> : null}</Card>}
         <View style={styles.heading}>
           <Badge label="NEW AI SCAN" tone="primary" icon="sparkles" />
           <AppText variant="title">What would you like to scan?</AppText>

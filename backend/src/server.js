@@ -12,6 +12,7 @@ import exportRoutes from './routes/exports.js';
 import workspaceRoutes from './routes/workspace.js';
 import billingRoutes from './routes/billing.js';
 import { errorResponse } from './middleware/errors.js';
+import { startScanQueue } from './services/scanQueue.js';
 
 const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
@@ -31,4 +32,5 @@ app.use(errorResponse);
 
 await connectDb();
 await ensureAdmin();
+await startScanQueue();
 app.listen(env.port, '0.0.0.0', () => console.log(`[api] http://0.0.0.0:${env.port}`));
