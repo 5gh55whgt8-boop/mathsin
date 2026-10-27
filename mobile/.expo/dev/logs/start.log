@@ -1,0 +1,77 @@
+{"_e":"root:init","_t":1793075251440,"format":"v0-jsonl","version":"57.0.22"}
+{"_e":"env:mode","_t":1793075251442,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1793075251445,"mode":"development","files":[],"env":{}}
+{"_e":"devserver:start","_t":1793075252347,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1793075252904,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1793075253233,"plugins":[]}
+{"_e":"metro:instantiate","_t":1793075266245,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1793075415902,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793075415902,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793075415905,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793075548699,"id":"1","progress":0.04591836734693877,"total":14,"current":3}
+{"_e":"metro:bundling:progress","_t":1793075548714,"id":"1","progress":0.08163265306122448,"total":14,"current":4}
+{"_e":"metro:bundling:progress","_t":1793075548814,"id":"1","progress":0.08163265306122448,"total":174,"current":49}
+{"_e":"metro:bundling:progress","_t":1793075548927,"id":"1","progress":0.1064819944598338,"total":190,"current":62}
+{"_e":"metro:bundling:progress","_t":1793075549028,"id":"1","progress":0.2485855756807293,"total":353,"current":176}
+{"_e":"metro:bundling:progress","_t":1793075549132,"id":"1","progress":0.2667552227991789,"total":364,"current":188}
+{"_e":"metro:bundling:progress","_t":1793075549232,"id":"1","progress":0.4060035970754212,"total":554,"current":353}
+{"_e":"metro:bundling:progress","_t":1793075549345,"id":"1","progress":0.4193662974708863,"total":559,"current":362}
+{"_e":"metro:bundling:progress","_t":1793075549446,"id":"1","progress":0.5855208937456121,"total":724,"current":554}
+{"_e":"metro:bundling:progress","_t":1793075549558,"id":"1","progress":0.5881303210463734,"total":725,"current":556}
+{"_e":"metro:bundling:progress","_t":1793075549560,"id":"1","progress":0.5902478002378121,"total":725,"current":557}
+{"_e":"metro:bundling:progress","_t":1793075549675,"id":"1","progress":0.7733713527812106,"total":821,"current":722}
+{"_e":"metro:bundling:progress","_t":1793075549775,"id":"1","progress":0.8423436105023943,"total":888,"current":815}
+{"_e":"metro:bundling:progress","_t":1793075549881,"id":"1","progress":0.8807713025260642,"total":943,"current":885}
+{"_e":"metro:bundling:progress","_t":1793075549981,"id":"1","progress":0.9182401350583412,"total":982,"current":941}
+{"_e":"metro:bundling:progress","_t":1793075550081,"id":"1","progress":0.9545944460978457,"total":1045,"current":1021}
+{"_e":"metro:bundling:done","_t":1793075550233,"id":"1","total":1045,"ms":134334.8924}
+{"_e":"metro:client_log","_t":1793075550543,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1793075550544,"level":"warn","data":["[Reanimated] Reduced motion setting is enabled on this device. This warning is visible only in the development mode. Some animations will be disabled by default. You can override the behavior for individual animations, see https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#reduced-motion-setting-is-enabled-on-this-device."]}
+{"_e":"metro:client_log","_t":1793075550544,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1793075567603,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1793075589427,"level":"log","data":["[OCR] Web platform: Native ML Kit OCR is designed for on-device mobile (Android/iOS)."]}
+{"_e":"metro:client_log","_t":1793075589464,"level":"error","data":["SCAN ERROR","On-device ML Kit OCR runs locally on physical iOS and Android devices. For web, please use mobile dev build or document upload.","\n\n\u001b[1mCode: ScanScreen.js\u001b[22m\n\u001b[0m \u001b[90m 171 |\u001b[39m       setAsset(\u001b[36mnull\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 172 |\u001b[39m     } \u001b[36mcatch\u001b[39m (error) {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 173 |\u001b[39m       console\u001b[33m.\u001b[39merror(\u001b[32m'SCAN ERROR'\u001b[39m\u001b[33m,\u001b[39m error\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mdata \u001b[33m||\u001b[39m error\u001b[33m.\u001b[39mmessage)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 174 |\u001b[39m       \u001b[33mAlert\u001b[39m\u001b[33m.\u001b[39malert(\u001b[32m'Scan failed'\u001b[39m\u001b[33m,\u001b[39m error\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mdata\u001b[33m?\u001b[39m\u001b[33m.\u001b[39merror \u001b[33m||\u001b[39m error\u001b[33m.\u001b[39mmessage)\u001b[33m;\u001b[39m\n \u001b[90m 175 |\u001b[39m     } \u001b[36mfinally\u001b[39m {\n \u001b[90m 176 |\u001b[39m       setBusy(\u001b[36mfalse\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[1mCall Stack\u001b[22m\n\u001b[90m  handleScan (src\\screens\\ScanScreen.js:173:15)\u001b[39m"]}
+{"_e":"metro:client_log","_t":1793075593440,"level":"log","data":["[OCR] Web platform: Native ML Kit OCR is designed for on-device mobile (Android/iOS)."]}
+{"_e":"metro:client_log","_t":1793075593458,"level":"error","data":["SCAN ERROR","On-device ML Kit OCR runs locally on physical iOS and Android devices. For web, please use mobile dev build or document upload.","\n\n\u001b[1mCode: ScanScreen.js\u001b[22m\n\u001b[0m \u001b[90m 171 |\u001b[39m       setAsset(\u001b[36mnull\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 172 |\u001b[39m     } \u001b[36mcatch\u001b[39m (error) {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 173 |\u001b[39m       console\u001b[33m.\u001b[39merror(\u001b[32m'SCAN ERROR'\u001b[39m\u001b[33m,\u001b[39m error\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mdata \u001b[33m||\u001b[39m error\u001b[33m.\u001b[39mmessage)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 174 |\u001b[39m       \u001b[33mAlert\u001b[39m\u001b[33m.\u001b[39malert(\u001b[32m'Scan failed'\u001b[39m\u001b[33m,\u001b[39m error\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mdata\u001b[33m?\u001b[39m\u001b[33m.\u001b[39merror \u001b[33m||\u001b[39m error\u001b[33m.\u001b[39mmessage)\u001b[33m;\u001b[39m\n \u001b[90m 175 |\u001b[39m     } \u001b[36mfinally\u001b[39m {\n \u001b[90m 176 |\u001b[39m       setBusy(\u001b[36mfalse\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[1mCall Stack\u001b[22m\n\u001b[90m  handleScan (src\\screens\\ScanScreen.js:173:15)\u001b[39m"]}
+{"_e":"root:init","_t":1793075793058,"format":"v0-jsonl","version":"57.0.22"}
+{"_e":"env:mode","_t":1793075793061,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1793075793065,"mode":"development","files":[],"env":{}}
+{"_e":"devserver:start","_t":1793075793935,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1793075794521,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1793075794846,"plugins":[]}
+{"_e":"metro:instantiate","_t":1793075807463,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1793075832839,"id":"1","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793075832839,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793075832843,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793075832943,"id":"1","progress":0.26839889679198725,"total":166,"current":86}
+{"_e":"metro:bundling:progress","_t":1793075833043,"id":"1","progress":0.26839889679198725,"total":364,"current":166}
+{"_e":"metro:bundling:progress","_t":1793075833143,"id":"1","progress":0.30616293333441286,"total":497,"current":275}
+{"_e":"metro:bundling:progress","_t":1793075833244,"id":"1","progress":0.45028273255455753,"total":611,"current":410}
+{"_e":"metro:bundling:progress","_t":1793075833344,"id":"1","progress":0.4862235208181154,"total":740,"current":516}
+{"_e":"metro:bundling:progress","_t":1793075833444,"id":"1","progress":0.5300861803631888,"total":912,"current":664}
+{"_e":"metro:bundling:progress","_t":1793075833546,"id":"1","progress":0.558009,"total":1000,"current":747}
+{"_e":"metro:bundling:progress","_t":1793075833646,"id":"1","progress":0.7103638962478372,"total":1088,"current":917}
+{"_e":"metro:bundling:progress","_t":1793075833746,"id":"1","progress":0.8054301924734272,"total":1180,"current":1059}
+{"_e":"metro:bundling:progress","_t":1793075833846,"id":"1","progress":0.8569634823922374,"total":1279,"current":1184}
+{"_e":"metro:bundling:progress","_t":1793075833946,"id":"1","progress":0.9190973534971645,"total":1380,"current":1323}
+{"_e":"metro:bundling:progress","_t":1793075834047,"id":"1","progress":0.9958376736111111,"total":1440,"current":1437}
+{"_e":"metro:bundling:progress","_t":1793075834147,"id":"1","progress":0.9986259019142428,"total":1455,"current":1454}
+{"_e":"metro:bundling:done","_t":1793075834278,"id":"1","total":1455,"ms":1439.389}
+{"_e":"metro:client_log","_t":1793075868985,"level":"log","data":["[OCR] Starting local ML Kit recognition"]}
+{"_e":"metro:client_log","_t":1793075869923,"level":"log","data":["[OCR] Completed: 21 blocks, 29 lines"]}
+{"_e":"metro:client_log","_t":1793075870716,"level":"warn","data":["[OCR] Local scan sync failed:","Local scan sync failed: API endpoint returned 404"]}
+{"_e":"metro:bundling:started","_t":1793076303671,"id":"2","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793076303672,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076303675,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076303775,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076304046,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076304146,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076304260,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793076304368,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1793076304443,"id":"2","total":1,"ms":772.026}
+{"_e":"metro:bundling:started","_t":1793076335864,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793076335864,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1793076335910,"id":"3","total":1,"ms":46.0632}
+{"_e":"metro:client_log","_t":1793076356567,"level":"log","data":["[OCR] Starting local ML Kit recognition"]}
+{"_e":"metro:client_log","_t":1793076357377,"level":"log","data":["[OCR] Completed: 10 blocks, 12 lines"]}
+{"_e":"metro:client_log","_t":1793076358120,"level":"warn","data":["[OCR] Local scan sync failed:","Local scan sync failed: API endpoint returned 404"]}

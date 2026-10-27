@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "MathLens AI",
+    "slug": "mathlens-ai",
+    "version": "4.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/mathlens-app-icon.png",
+    "android": {
+      "package": "com.aparaitech.mathlensai",
+      "permissions": [
+        "CAMERA"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/mathlens-mark.png",
+        "backgroundColor": "#071534"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.aparaitech.mathlensai",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Scan equations and documents.",
+        "CADisableMinimumFrameDurationOnPhone": true
+      }
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-image-picker",
+      "expo-document-picker",
+      "expo-image",
+      "expo-sharing",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/mathlens-mark.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F4F7FB"
+        }
+      ],
+      "expo-dev-client",
+      [
+        "react-native-vision-camera-mlkit",
+        {
+          "textRecognition": true,
+          "barcodeScanning": false
+        }
+      ]
+    ]
+  }
+}
