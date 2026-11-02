@@ -16,16 +16,20 @@ dotenv.config({ path: smartBillingEnv });
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || path.resolve(configDir, '../../../.env'), override: true });
 
 const required = [];
-const geminiKeys = [
+const listSetting = (...values) => values
+  .flatMap(value => String(value || '').split(/[,\r\n;]+/))
+  .map(value => value.trim().replace(/^['"]|['"]$/g, ''))
+  .filter(Boolean);
+const geminiKeys = listSetting(
   process.env.GEMINI_API_KEYS,
   ...Array.from({ length: 5 }, (_, index) => process.env[`GEMINI_API_KEY_${index + 1}`]),
   process.env.GEMINI_API_KEY
-].flatMap(value => String(value || '').split(',')).map(value => value.trim()).filter(Boolean);
-const geminiModels = [
+);
+const geminiModels = listSetting(
   process.env.GEMINI_OCR_MODELS,
   ...Array.from({ length: 5 }, (_, index) => process.env[`GEMINI_OCR_MODEL_${index + 1}`]),
   process.env.GEMINI_OCR_MODEL
-].flatMap(value => String(value || '').split(',')).map(value => value.trim()).filter(Boolean);
+).map(model => model.replace(/^models\//i, ''));
 
 if (!geminiKeys.length) {
   console.warn('[env] Missing GEMINI_API_KEYS');
@@ -49,7 +53,7 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   maxFileSize: Number(process.env.MAX_FILE_SIZE || 20 * 1024 * 1024),
   geminiKeys: [...new Set(geminiKeys)],
-  geminiModels: [...new Set(geminiModels.length ? geminiModels : ['gemini-3.5-flash'])],
+  geminiModels: [...new Set(geminiModels.length ? geminiModels : ['gemini-2.5-flash'])],
   ocrTimeoutMs: integerSetting('OCR_TIMEOUT_MS', 90000, 10000, 180000),
   ocrMaxRetries: integerSetting('OCR_MAX_RETRIES', 2, 0, 3),
   ocrConcurrency: integerSetting('OCR_CONCURRENCY', 2, 1, 4),

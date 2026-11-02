@@ -26,8 +26,12 @@ function pause(ms, signal) {
 
 // Inject clients for deterministic tests without sending documents to providers.
 export function createAiService({ config = env, fetchImpl = globalThis.fetch, client, sleep = pause } = {}) {
-  const keys = [...new Set(config.geminiKeys || (config.geminiKey ? [config.geminiKey] : []))].filter(Boolean);
-  const models = [...new Set(config.geminiModels || (config.geminiModel ? [config.geminiModel] : []))].filter(Boolean);
+  const keys = [...new Set((config.geminiKeys || (config.geminiKey ? [config.geminiKey] : []))
+    .flatMap(value => String(value || '').split(/[,\r\n;]+/)).map(value => value.trim()).filter(Boolean))];
+  const models = [...new Set((config.geminiModels || (config.geminiModel ? [config.geminiModel] : []))
+    .flatMap(value => String(value || '').split(/[,\r\n;]+/))
+    .map(value => value.trim().replace(/^models\//i, ''))
+    .filter(Boolean))];
   const unavailableUntil = new Map();
 
   function shuffledCandidates() {
@@ -80,6 +84,9 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
       if (response.status === 429) {
         unavailableUntil.set(candidateId, Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs));
         throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503);
+      }
+      if ([400, 401, 403].includes(response.status)) {
+        unavailableUntil.set(candidateId, Date.now() + (response.status === 400 ? 60 * 60 * 1000 : 15 * 60 * 1000));
       }
       throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
     }

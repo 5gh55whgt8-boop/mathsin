@@ -18,7 +18,13 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
-app.get('/health', (req, res) => res.json({ ok: true, app: env.appName, env: env.nodeEnv, time: new Date().toISOString() }));
+app.get('/health', (req, res) => res.json({
+  ok: true,
+  app: env.appName,
+  env: env.nodeEnv,
+  time: new Date().toISOString(),
+  gemini: { keys: env.geminiKeys.length, models: env.geminiModels }
+}));
 app.use('/api/auth', authRoutes);
 app.use('/api/scans', scanRoutes);
 app.use('/api/ai', aiRoutes);
