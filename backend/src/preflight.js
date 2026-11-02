@@ -4,10 +4,8 @@ import { env } from './config/env.js';
 console.log('MathLens AI — preflight');
 console.log(`Node ${process.version}`);
 console.log(`Mongo URI: ${env.mongoUri ? 'configured' : 'MISSING'}`);
-console.log(`OpenAI key: ${env.openaiKey ? 'configured' : 'MISSING'}`);
-console.log(`OpenAI OCR model: ${env.openaiModel}`);
-console.log(`Gemini key: ${env.geminiKey ? 'configured' : 'MISSING'}`);
-console.log(`Gemini fallback model: ${env.geminiModel}`);
+console.log(`Gemini keys: ${env.geminiKeys.length}`);
+console.log(`Gemini OCR models: ${env.geminiModels.join(', ')}`);
 try {
   const host = new URL(env.mongoUri.replace('mongodb+srv://','http://')).hostname;
   const records = await dns.resolveSrv(`_mongodb._tcp.${host}`);

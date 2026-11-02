@@ -7,7 +7,7 @@ import { env } from '../src/config/env.js';
 const source = process.argv[2];
 if (!source) throw new Error('Usage: node scripts/check-mathsinn.mjs <path-to-mathsinn.pdf>');
 const started = Date.now();
-const service = createAiService({ config: process.argv[3] ? { ...env, openaiKey: undefined, geminiModel: process.argv[3] } : env });
+const service = createAiService({ config: process.argv[3] ? { ...env, geminiModels: [process.argv[3]] } : env });
 try {
   const result = await service.scanFile(source, 'application/pdf', path.basename(source));
   const output = path.resolve('../tmp/ocr-mathsinn-result.json');

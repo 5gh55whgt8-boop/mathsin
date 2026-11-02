@@ -23,11 +23,13 @@ const scanSchema = new mongoose.Schema({
   warnings: { type: [String], default: [] },
   tags: { type: [String], default: [] },
   favorite: { type: Boolean, default: false },
-  provider: { type: String, default: 'openai' },
+  provider: { type: String, default: 'gemini' },
   ocrSource: { type: String, default: 'cloud' },
   recognitionMode: { type: String, default: 'ai' },
   model: String,
   raw: mongoose.Schema.Types.Mixed
 }, { timestamps: true });
+
+scanSchema.index({ user: 1, 'raw.localSyncId': 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Scan', scanSchema);

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import { parseJsonLoose } from '../src/utils/json.js';
 import { formatTranscript, validateTranscript, validateReview, mergePageResults } from '../src/services/ocrFormat.js';
-import { createAiService, readGeminiResponse, readOpenAIResponse } from '../src/services/openai.js';
+import { createAiService, readGeminiResponse } from '../src/services/openai.js';
 
 function transcript(number = '11') {
   return {
@@ -45,7 +45,6 @@ test('strict JSON rejects truncation, trailing junk and silently damaged LaTeX',
 
 test('provider completion is required even when truncated response happens to be valid JSON', () => {
   assert.throws(() => readGeminiResponse({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{}' }] } }] }), { code: 'OCR_TRUNCATED' });
-  assert.throws(() => readOpenAIResponse({ status: 'incomplete', output_text: '{}' }), { code: 'OCR_TRUNCATED' });
   assert.equal(readGeminiResponse({ candidates: [{ finishReason: 'STOP', content: { parts: [{ thought: true, text: 'private reasoning' }, { text: '{"ok":true}' }] } }] }), '{"ok":true}');
 });
 
@@ -158,29 +157,23 @@ test('a failed PDF page stops queued pages and never returns a partial scan', as
   assert.equal(calls, 1);
 });
 
-test('OpenAI uses strict schema and its completed result has the same public format', async () => {
-  let request;
-  const client = { responses: { create: async body => {
-    request = body;
-    return { status: 'completed', incomplete_details: null, output_text: JSON.stringify(transcript()), model: 'fixture-openai', id: 'id' };
-  } } };
-  const service = createAiService({ config: { ...config, openaiModel: 'fixture-openai' }, client,
-    fetchImpl: async () => { assert.fail('Completed valid response must not fall back'); } });
-  const result = await service.scanText('~[(~p ∧ q) → ~p] ≡');
-  assert.equal(request.text.format.type, 'json_schema');
-  assert.equal(request.text.format.strict, true);
-  assert.equal(result.provider, 'openai');
-  assert.equal(result.parsed.questions.length, 1);
-});
-
-test('incomplete OpenAI output falls back rather than saving a partial transcript', async () => {
-  let fallbacks = 0;
-  const service = createAiService({ config, client: { responses: { create: async () => ({
-    status: 'incomplete', output_text: JSON.stringify(transcript()), incomplete_details: { reason: 'max_output_tokens' }
-  }) } }, fetchImpl: async () => { fallbacks++; return reply(transcript()); } });
+test('quota failures rotate uniformly across Gemini key/model candidates', async () => {
+  const requests = [];
+  const service = createAiService({
+    config: { ...config, geminiKeys: ['key-a', 'key-b'], geminiModels: ['model-a', 'model-b'] },
+    fetchImpl: async (url, request) => {
+      requests.push({ url, key: request.headers['x-goog-api-key'] });
+      if (requests.length < 4) {
+        return { ok: false, status: 429, json: async () => ({ error: { details: [{ violations: [{ quotaId: 'perMinute' }] }] } }) };
+      }
+      return reply(transcript());
+    }
+  });
   const result = await service.scanText('source');
-  assert.equal(fallbacks, 1);
   assert.equal(result.provider, 'gemini');
+  assert.equal(requests.length, 4);
+  assert.equal(new Set(requests.map(request => request.key)).size, 2);
+  assert.equal(new Set(requests.map(request => `${request.key}:${request.url}`)).size, 4);
 });
 
 test('overall deadline aborts an in-flight provider request', async () => {

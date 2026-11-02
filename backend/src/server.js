@@ -28,8 +28,14 @@ app.use('/api/billing', billingRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
-  if (err?.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'File too large' });
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'This file is too large. Please choose a file smaller than 20 MB.' });
+  }
+  const status = err.status || 500;
+  const message = status >= 500
+    ? 'We could not complete the scan right now. Please try again.'
+    : err.message || 'The request could not be completed.';
+  res.status(status).json({ error: message });
 });
 
 await connectDb();

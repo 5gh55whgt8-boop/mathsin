@@ -1,14 +1,61 @@
 import { Router } from 'express';
 import PDFDocument from 'pdfkit';
+import multer from 'multer';
 import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
 import Scan from '../models/Scan.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 router.use(requireAuth);
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 20 }
+});
 const esc = s => String(s || '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const filename = s => String(s || 'scan').replace(/[^a-z0-9._-]+/gi,'_').slice(0,80);
 const recognized = scan => scan.plainText || scan.markdown || scan.latex || '';
+const pdfText = value => String(value || '')
+  .replace(/[∑Σ]/g, 'SUM')
+  .replace(/[∫]/g, 'INT')
+  .replace(/[√]/g, 'sqrt')
+  .replace(/[∞]/g, 'infinity')
+  .replace(/[≤]/g, '<=')
+  .replace(/[≥]/g, '>=')
+  .replace(/[≠]/g, '!=')
+  .replace(/[≈]/g, '~=')
+  .replace(/[×·]/g, '*')
+  .replace(/[÷]/g, '/')
+  .replace(/[−–—]/g, '-')
+  .replace(/[→⇒]/g, '->')
+  .replace(/[←⇐]/g, '<-')
+  .replace(/[αβγδεθλμππ]/g, character => ({
+    α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon',
+    θ: 'theta', λ: 'lambda', μ: 'mu', π: 'pi'
+  }[character] || character)
+  .replace(/[^\x00-\xFF]/g, '?');
+
+router.post('/images-pdf', imageUpload.array('images', 20), async (req, res, next) => {
+  try {
+    if (!req.files?.length) return res.status(400).json({ error: 'Choose at least one image.' });
+    const invalid = req.files.find(file => !['image/jpeg', 'image/png'].includes(file.mimetype));
+    if (invalid) return res.status(415).json({ error: 'Only image files can be added to a PDF.' });
+
+    res.type('application/pdf').attachment('mathlens-images.pdf');
+    const doc = new PDFDocument({ autoFirstPage: false, margin: 0 });
+    doc.pipe(res);
+    for (const file of req.files) {
+      const image = doc.openImage(file.buffer);
+      const pageWidth = 595.28;
+      const pageHeight = 841.89;
+      const scale = Math.min(pageWidth / image.width, pageHeight / image.height);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      doc.addPage({ size: 'A4', margin: 0 });
+      doc.image(image, (pageWidth - width) / 2, (pageHeight - height) / 2, { width, height });
+    }
+    doc.end();
+  } catch (e) { next(e); }
+});
 
 router.get('/:scanId/:format', async (req, res, next) => {
   try {
@@ -27,14 +74,13 @@ router.get('/:scanId/:format', async (req, res, next) => {
       res.type('application/pdf').attachment(`${base}.pdf`);
       const doc = new PDFDocument({ margin: 50, autoFirstPage: true });
       doc.pipe(res);
-      doc.fontSize(21).text(scan.title || 'AI Scan');
-      doc.fontSize(9).fillColor('#666').text(`AI provider: ${scan.provider || 'AI'}${scan.model ? ` • ${scan.model}` : ''}`);
+      doc.fontSize(21).text(pdfText(scan.title || 'AI Scan'));
       doc.fillColor('#000').moveDown();
       doc.fontSize(14).text('AI extracted text');
-      doc.moveDown(0.5).fontSize(11).text(recognized(scan) || 'No recognized content.', { lineGap: 3 });
+      doc.moveDown(0.5).fontSize(11).text(pdfText(recognized(scan) || 'No recognized content.'), { lineGap: 3 });
       if (scan.latex) {
         doc.moveDown().fontSize(14).text('LaTeX');
-        doc.moveDown(0.5).fontSize(10).text(scan.latex, { lineGap: 2 });
+        doc.moveDown(0.5).fontSize(10).text(pdfText(scan.latex), { lineGap: 2 });
       }
       doc.end();
       return;
@@ -42,7 +88,6 @@ router.get('/:scanId/:format', async (req, res, next) => {
     if (f === 'docx') {
       const children = [
         new Paragraph({ text: scan.title || 'AI Scan', heading: HeadingLevel.TITLE }),
-        new Paragraph({ children: [new TextRun({ text: `AI provider: ${scan.provider || 'AI'}${scan.model ? ` • ${scan.model}` : ''}`, italics: true })] })
       ];
       children.push(new Paragraph({ text: 'AI extracted text', heading: HeadingLevel.HEADING_1 }));
       for (const line of String(recognized(scan) || 'No recognized content.').split(/\n/)) children.push(new Paragraph({ text: line || ' ' }));

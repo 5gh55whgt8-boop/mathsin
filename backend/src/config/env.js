@@ -16,8 +16,19 @@ dotenv.config({ path: smartBillingEnv });
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || path.resolve(configDir, '../../../.env'), override: true });
 
 const required = [];
-if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-  console.warn('[env] Missing both OPENAI_API_KEY and GEMINI_API_KEY');
+const geminiKeys = [
+  process.env.GEMINI_API_KEYS,
+  ...Array.from({ length: 5 }, (_, index) => process.env[`GEMINI_API_KEY_${index + 1}`]),
+  process.env.GEMINI_API_KEY
+].flatMap(value => String(value || '').split(',')).map(value => value.trim()).filter(Boolean);
+const geminiModels = [
+  process.env.GEMINI_OCR_MODELS,
+  ...Array.from({ length: 5 }, (_, index) => process.env[`GEMINI_OCR_MODEL_${index + 1}`]),
+  process.env.GEMINI_OCR_MODEL
+].flatMap(value => String(value || '').split(',')).map(value => value.trim()).filter(Boolean);
+
+if (!geminiKeys.length) {
+  console.warn('[env] Missing GEMINI_API_KEYS');
 }
 for (const key of required) {
   if (!process.env[key]) console.warn(`[env] Missing ${key}`);
@@ -37,11 +48,8 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || process.env.SESSION_SECRET || 'dev-only-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   maxFileSize: Number(process.env.MAX_FILE_SIZE || 20 * 1024 * 1024),
-  openaiKey: process.env.OPENAI_API_KEY,
-  openaiModel: process.env.OPENAI_OCR_MODEL || 'gpt-5.6',
-  reasoningEffort: process.env.OPENAI_OCR_REASONING_EFFORT || 'high',
-  geminiKey: process.env.GEMINI_API_KEY,
-  geminiModel: process.env.GEMINI_OCR_MODEL || 'gemini-3.5-flash',
+  geminiKeys: [...new Set(geminiKeys)],
+  geminiModels: [...new Set(geminiModels.length ? geminiModels : ['gemini-3.5-flash'])],
   ocrTimeoutMs: integerSetting('OCR_TIMEOUT_MS', 90000, 10000, 180000),
   ocrMaxRetries: integerSetting('OCR_MAX_RETRIES', 2, 0, 3),
   ocrConcurrency: integerSetting('OCR_CONCURRENCY', 2, 1, 4),

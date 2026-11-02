@@ -9,7 +9,6 @@ import { requireAuth } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import mammoth from 'mammoth';
 import { scanFile, scanImage, scanText } from '../services/openai.js';
-import { hasScanAccess, trialState } from '../services/entitlements.js';
 
 const uploadDir = path.resolve('uploads');
 const scanStorageDir = path.resolve('storage/scans');
@@ -18,11 +17,6 @@ await fs.mkdir(scanStorageDir, { recursive: true });
 const upload = multer({ dest: uploadDir, limits: { fileSize: env.maxFileSize } });
 const router = Router();
 router.use(requireAuth);
-
-function requireScanAccess(req, res, next) {
-  if (hasScanAccess(req.user)) return next();
-  return res.status(402).json({ error: 'Your free trial has ended. Subscribe to MathLens Pro to continue scanning.', code: 'SUBSCRIPTION_REQUIRED', trial: trialState(req.user) });
-}
 
 function safeExt(originalName = '', mimeType = '') {
   const ext = path.extname(originalName).toLowerCase();
@@ -58,7 +52,7 @@ async function saveResult(req, result, sourceType) {
     questions: Array.isArray(p.questions) ? p.questions : [],
     warnings: Array.isArray(p.warnings) ? p.warnings : [],
     model: result.model,
-    provider: result.provider || 'openai',
+    provider: result.provider || 'gemini',
     ocrSource: 'cloud',
     recognitionMode: 'ai',
     raw: { responseId: result.rawId }
@@ -67,8 +61,13 @@ async function saveResult(req, result, sourceType) {
   return scan;
 }
 
-router.post('/local', requireScanAccess, async (req, res, next) => {
+router.post('/local', async (req, res, next) => {
   try {
+    const localSyncId = String(req.body.localSyncId || '').trim().slice(0, 100);
+    if (localSyncId) {
+      const existing = await Scan.findOne({ user: req.user._id, 'raw.localSyncId': localSyncId });
+      if (existing) return res.status(200).json({ scan: existing });
+    }
     const plainText = String(req.body.plainText || '').trim();
     const markdown = String(req.body.markdown || plainText).trim();
     if (!plainText && !markdown) {
@@ -105,7 +104,7 @@ router.post('/local', requireScanAccess, async (req, res, next) => {
       ocrSource: 'mlkit',
       recognitionMode: 'local',
       model: String(req.body.model || 'ML Kit Text Recognition').slice(0, 80),
-      raw: { local: true }
+      raw: { local: true, localSyncId: localSyncId || undefined }
     });
 
     await User.updateOne({ _id: req.user._id }, { $inc: { 'usage.scans': 1 } });
@@ -113,7 +112,7 @@ router.post('/local', requireScanAccess, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.post('/image', requireScanAccess, upload.single('file'), async (req, res, next) => {
+router.post('/image', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
     if (!req.file.mimetype.startsWith('image/')) return res.status(415).json({ error: 'Image required' });
@@ -123,7 +122,7 @@ router.post('/image', requireScanAccess, upload.single('file'), async (req, res,
   finally { fs.unlink(req.file.path).catch(() => {}); }
 });
 
-router.post('/document', requireScanAccess, upload.single('file'), async (req, res, next) => {
+router.post('/document', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
     const allowed = new Set(['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain']);

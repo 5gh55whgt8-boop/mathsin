@@ -123,7 +123,7 @@ export default function ResultScreen({ route }) {
       setSaveState('local');
       Alert.alert(
         'Scan synchronization failed',
-        error.response?.data?.error || describeApiFailure(error, 'Local scan sync'),
+        describeApiFailure(error, 'Scan synchronization'),
       );
     } finally {
       setSyncing(false);
@@ -196,20 +196,13 @@ export default function ResultScreen({ route }) {
         <View style={styles.resultHeading}>
           <View style={styles.headingBadges}>
             <Badge
-              label={(scan.local ? 'ON-DEVICE' : (scan.sourceType || 'scan')).toUpperCase()}
+              label={(scan.sourceType || 'scan').toUpperCase()}
               tone={scan.local ? 'good' : 'primary'}
               icon={scan.local ? 'phone-portrait-outline' : 'scan-outline'}
             />
-            <Badge
-              label={scan.provider || (scan.local ? 'ML Kit' : 'AI')}
-              tone="neutral"
-              icon={scan.local ? 'hardware-chip-outline' : 'sparkles-outline'}
-            />
           </View>
           <AppText variant="title" selectable>{scan.title || 'Scan result'}</AppText>
-          <Muted selectable>
-            {scan.model ? `Recognized with ${scan.model}` : (scan.local ? 'Recognized on-device with ML Kit' : 'Recognized and ready to edit.')}
-          </Muted>
+          <Muted selectable>Recognized and ready to edit.</Muted>
           {!scan._id ? (
             <Card tone="warning" style={styles.syncCard}>
               <View style={styles.flexCopy}>

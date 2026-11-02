@@ -257,8 +257,8 @@ export function SectionHeader({ title, subtitle, action }) {
 }
 
 export function FeatureIcon({ name, tone = 'primary', size = 46 }) {
-  const color = tone === 'accent' ? C.good : tone === 'warning' ? C.warning : C.primary;
-  const backgroundColor = tone === 'accent' ? C.accentSoft : tone === 'warning' ? C.warningSoft : C.primarySoft;
+  const color = tone === 'accent' ? C.good : tone === 'warning' ? C.warning : tone === 'pink' ? '#E93572' : tone === 'blue' ? '#1976E8' : C.primary;
+  const backgroundColor = tone === 'accent' ? C.accentSoft : tone === 'warning' ? C.warningSoft : tone === 'pink' ? '#FFE4EE' : tone === 'blue' ? '#E2F0FF' : C.primarySoft;
   return (
     <View style={[styles.featureIcon, { width: size, height: size, backgroundColor }]}>
       <Ionicons name={name} size={Math.round(size * 0.46)} color={color} />

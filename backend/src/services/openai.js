@@ -1,5 +1,4 @@
 import fs from 'fs/promises';
-import OpenAI from 'openai';
 import { env } from '../config/env.js';
 import { parseJsonLoose } from '../utils/json.js';
 import { splitPdfIntoPages } from './pdfPages.js';
@@ -16,12 +15,6 @@ export function readGeminiResponse(payload) {
   return text;
 }
 
-export function readOpenAIResponse(response) {
-  if (response.status !== 'completed' || response.incomplete_details) throw ocrError('The scanner did not finish reading the page.', 'OCR_TRUNCATED');
-  if (!response.output_text?.trim()) throw ocrError('The scanner returned no text.', 'OCR_EMPTY');
-  return response.output_text;
-}
-
 function pause(ms, signal) {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted();
@@ -33,22 +26,31 @@ function pause(ms, signal) {
 
 // Inject clients for deterministic tests without sending documents to providers.
 export function createAiService({ config = env, fetchImpl = globalThis.fetch, client, sleep = pause } = {}) {
-  const openai = client === undefined && config.openaiKey
-    ? new OpenAI({ apiKey: config.openaiKey, timeout: config.ocrTimeoutMs, maxRetries: 0 }) : client;
-  let openaiBackoffUntil = 0;
-  let geminiBackoffUntil = 0;
-  const reasoning = ['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config.reasoningEffort)
-    ? { effort: config.reasoningEffort } : undefined;
+  const keys = [...new Set(config.geminiKeys || (config.geminiKey ? [config.geminiKey] : []))].filter(Boolean);
+  const models = [...new Set(config.geminiModels || (config.geminiModel ? [config.geminiModel] : []))].filter(Boolean);
+  const unavailableUntil = new Map();
 
-  async function gemini(parts, schema, signal) {
-    if (Date.now() < geminiBackoffUntil) throw ocrError('Scanner quota is temporarily exhausted.', 'OCR_PROVIDER_QUOTA', 503);
+  function shuffledCandidates() {
+    const candidates = keys.flatMap(key => models.map(model => ({ key, model })));
+    for (let index = candidates.length - 1; index > 0; index -= 1) {
+      const swap = Math.floor(Math.random() * (index + 1));
+      [candidates[index], candidates[swap]] = [candidates[swap], candidates[index]];
+    }
+    return candidates;
+  }
+
+  async function gemini(parts, schema, signal, candidate) {
+    const candidateId = `${candidate.key}:${candidate.model}`;
+    if (Date.now() < (unavailableUntil.get(candidateId) || 0)) {
+      throw ocrError('Scanner quota is temporarily exhausted.', 'OCR_PROVIDER_QUOTA', 503);
+    }
     for (let attempt = 0; ; attempt += 1) {
       signal.throwIfAborted();
       let response;
       let payload;
       try {
-        response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.geminiModel)}:generateContent`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.geminiKey },
+        response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidate.model)}:generateContent`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': candidate.key },
           body: JSON.stringify({
             contents: [{ role: 'user', parts }],
             generationConfig: {
@@ -64,19 +66,19 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         if (attempt < config.ocrMaxRetries) { await sleep(750 * (attempt + 1), signal); continue; }
         throw ocrError('The scanner could not be reached. Please try again shortly.', 'OCR_CONNECTION', 503);
       }
-      if (response.ok) return { text: readGeminiResponse(payload), rawId: payload.responseId, model: config.geminiModel };
+      if (response.ok) return { text: readGeminiResponse(payload), rawId: payload.responseId, model: candidate.model };
       const details = payload?.error?.details || [];
       const dailyQuota = details.some(detail => (detail.violations || []).some(violation => /perday|daily/i.test(violation.quotaId || '')));
       const transient = [408, 429, 500, 502, 503, 504].includes(response.status);
       const retryInfo = details.find(detail => String(detail['@type']).endsWith('RetryInfo'));
       const retryMs = Math.min(60000, Math.max(1000, (parseFloat(retryInfo?.retryDelay) || 1) * 1000));
-      if (transient && !dailyQuota && attempt < config.ocrMaxRetries) {
+      if (transient && response.status !== 429 && !dailyQuota && attempt < config.ocrMaxRetries) {
         await sleep(response.status === 429 ? retryMs : 750 * (attempt + 1), signal);
         continue;
       }
       console.warn(`[ai] Gemini unavailable: status=${response.status}, dailyQuota=${dailyQuota}`);
       if (response.status === 429) {
-        geminiBackoffUntil = Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs);
+        unavailableUntil.set(candidateId, Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs));
         throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503);
       }
       throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
@@ -85,32 +87,16 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
 
   async function generate({ prompt, media, schema, validate, signal }) {
     let lastError;
-    if (openai && Date.now() >= openaiBackoffUntil) {
+    for (const candidate of shuffledCandidates()) {
       try {
-        const content = media ? [
-          media.mimeType === 'application/pdf'
-            ? { type: 'input_file', filename: 'scan-page.pdf', file_data: `data:application/pdf;base64,${media.data}` }
-            : { type: 'input_image', image_url: `data:${media.mimeType};base64,${media.data}`, detail: 'high' },
-          { type: 'input_text', text: prompt }
-        ] : [{ type: 'input_text', text: prompt }];
-        const response = await openai.responses.create({
-          model: config.openaiModel, reasoning, max_output_tokens: 32768,
-          ...(schema ? { text: { format: { type: 'json_schema', name: 'math_transcript', strict: true, schema } } } : {}),
-          input: [{ role: 'user', content }]
-        }, { signal, timeout: config.ocrTimeoutMs, maxRetries: 0 });
-        const text = readOpenAIResponse(response);
-        return { text, parsed: validate?.(parseJsonLoose(text)), rawId: response.id, model: response.model, provider: 'openai' };
+        const parts = [...(media ? [{ inlineData: { mimeType: media.mimeType, data: media.data } }] : []), { text: prompt }];
+        const result = await gemini(parts, schema, signal, candidate);
+        return { ...result, parsed: validate?.(parseJsonLoose(result.text)), provider: 'gemini' };
       } catch (error) {
         signal.throwIfAborted();
         lastError = error;
-        if ([401, 403, 404, 429].includes(error.status)) openaiBackoffUntil = Date.now() + 5 * 60 * 1000;
-        console.warn(`[ai] OpenAI unavailable: ${error.status || error.code || 'connection'}. Trying fallback.`);
+        console.warn(`[ai] Gemini candidate unavailable: model=${candidate.model}, error=${error.status || error.code || 'connection'}. Trying another candidate.`);
       }
-    }
-    if (config.geminiKey) {
-      const parts = [...(media ? [{ inlineData: { mimeType: media.mimeType, data: media.data } }] : []), { text: prompt }];
-      const result = await gemini(parts, schema, signal);
-      return { ...result, parsed: validate?.(parseJsonLoose(result.text)), provider: 'gemini' };
     }
     if (lastError?.code?.startsWith('OCR_')) throw lastError;
     throw ocrError('The scanner is unavailable. Please contact support or try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);

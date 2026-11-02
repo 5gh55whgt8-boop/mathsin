@@ -25,7 +25,7 @@ function formatDate(value) {
 
 function ScanRow({ item, onPress }) {
   const isLocal = item.provider === 'mlkit' || item.ocrSource === 'mlkit' || item.recognitionMode === 'local';
-  const typeLabel = isLocal ? 'On-device' : item.sourceType === 'image' ? 'Image' : item.sourceType === 'pdf' ? 'PDF' : 'Document';
+  const typeLabel = isLocal ? 'Quick scan' : item.sourceType === 'image' ? 'Image' : item.sourceType === 'pdf' ? 'PDF' : 'Document';
   const preview = item.plainText || item.markdown || 'Open to view recognized content.';
 
   return (

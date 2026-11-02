@@ -91,6 +91,9 @@ export async function recognizeImage(imageUri, options = {}) {
     if (/unsupported|decode/i.test(msg)) {
       throw new Error('Unsupported image format. Please capture a clear JPG or PNG.');
     }
+    if (/4 MP|4,096 px|4 megapixel|exceeds the .*limit/i.test(msg)) {
+      throw new Error('This image is too detailed for Quick Scan. Please choose a smaller image or retake the photo from farther away.');
+    }
     if (/native module|nitro/i.test(msg)) {
       throw new Error('Native OCR module is initializing or unavailable. Please build and run via Expo development build.');
     }

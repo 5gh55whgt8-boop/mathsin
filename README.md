@@ -45,7 +45,7 @@ The supplied `.env` is included because it was explicitly requested. It is ignor
 
 - Node.js 22.13+ (Expo SDK 57)
 - MongoDB Atlas access
-- OpenAI API key for OCR/vision and AI actions
+- Gemini API keys for OCR/vision and AI actions
 
 ## Run backend
 
@@ -126,7 +126,11 @@ The backend automatically ensures the configured admin account exists on startup
 
 ## OCR provider behavior
 
-OpenAI is primary. The service uses the Responses API with image/file inputs and requests strict JSON output in the prompt. Gemini environment variables are retained as a future fallback hook, but no Gemini-specific SDK is required to run the project.
+Gemini is the only OCR provider. Configure five comma-separated keys in
+`GEMINI_API_KEYS` and the available models in `GEMINI_OCR_MODELS`. Each request
+shuffles all key/model combinations uniformly. If a candidate reaches a quota
+limit, it is temporarily skipped and the request continues with another Gemini
+candidate; no OpenAI key is used.
 
 ## APK / Android preview
 
@@ -137,9 +141,6 @@ eas login
 eas build:configure
 eas build -p android --profile preview
 ```
-
-## AI provider fallback
-The backend now tries OpenAI first and automatically falls back to Gemini when OpenAI is unavailable (including quota/credit errors). Configure `GEMINI_API_KEY` and `GEMINI_OCR_MODEL` in `backend/.env`. The selected provider/model is saved on each scan.
 
 ## v4.1 — AI Photo Export
 - New image scans preserve the original uploaded photo on the backend.

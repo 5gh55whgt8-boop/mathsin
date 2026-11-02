@@ -1,42 +1,24 @@
-import React from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
+import { api, describeApiFailure } from '../api/client';
 import {
   AppText,
   Badge,
   Button,
   Card,
   FeatureIcon,
+  IconButton,
   Muted,
   PressableScale,
   Screen,
   ScrollScreen,
   SectionHeader,
 } from '../components/UI';
-import { C, gradients, motion, radius, shadows, spacing } from '../theme';
-
-const quickActions = [
-  {
-    title: 'Photo scan',
-    description: 'Camera or gallery',
-    icon: 'camera-outline',
-    tone: 'primary',
-  },
-  {
-    title: 'Document',
-    description: 'PDF, DOCX or TXT',
-    icon: 'document-text-outline',
-    tone: 'accent',
-  },
-];
-
-const capabilities = [
-  ['sparkles-outline', 'Precision OCR', 'Text, handwriting and math notation'],
-  ['calculator-outline', 'Step-by-step solve', 'Clear reasoning for every problem'],
-  ['share-social-outline', 'Professional export', 'Clean PDF and Word documents'],
-];
+import { C, motion, radius, shadows, spacing } from '../theme';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -45,193 +27,332 @@ function greeting() {
   return 'Good evening';
 }
 
+function relativeTime(value) {
+  if (!value) return 'Date unavailable';
+  const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function RecentScan({ scan, onPress }) {
+  const preview = (scan.plainText || scan.markdown || '').trim();
+  const isDocument = scan.sourceType !== 'image';
+  return (
+    <PressableScale accessibilityLabel={`Open ${scan.title || 'recent scan'}`} onPress={onPress} style={styles.recentPressable}>
+      <Card style={styles.recentCard}>
+        <View style={styles.recentPreview}>
+          <FeatureIcon
+            name={isDocument ? 'document-text-outline' : 'image-outline'}
+            tone={isDocument ? 'accent' : 'primary'}
+            size={40}
+          />
+          <AppText variant="bodyStrong" numberOfLines={3} style={styles.previewText}>
+            {preview || 'Open to view recognized content.'}
+          </AppText>
+        </View>
+        <AppText variant="bodyStrong" numberOfLines={1}>{scan.title || 'Untitled scan'}</AppText>
+        <Muted>{relativeTime(scan.createdAt)}</Muted>
+      </Card>
+    </PressableScale>
+  );
+}
+
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
-  const { width } = useWindowDimensions();
-  const twoColumns = width >= 360;
+  const [recentScans, setRecentScans] = useState([]);
+  const [recentError, setRecentError] = useState('');
   const firstName = user?.name?.trim()?.split(/\s+/)[0] || 'there';
+
+  const loadRecentScans = useCallback(async () => {
+    try {
+      setRecentError('');
+      const { data } = await api.get('/scans', { params: { limit: 5 } });
+      setRecentScans(Array.isArray(data.items) ? data.items.slice(0, 5) : []);
+    } catch (error) {
+      setRecentError(describeApiFailure(error, 'Recent scans'));
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadRecentScans();
+  }, [loadRecentScans]));
 
   return (
     <Screen>
-      <ScrollScreen>
-        <Animated.View
-          entering={FadeInDown.duration(motion.base).reduceMotion(ReduceMotion.System)}
-          style={styles.intro}
-        >
-          <AppText variant="title">{greeting()}, {firstName}</AppText>
-          <Muted>Turn any equation or document into editable, solvable math.</Muted>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInDown.duration(motion.base).delay(70).reduceMotion(ReduceMotion.System)}
-        >
+      <ScrollScreen contentContainerStyle={styles.content}>
+        <Animated.View entering={FadeInDown.duration(motion.base).reduceMotion(ReduceMotion.System)}>
           <LinearGradient
-            colors={gradients.hero}
+            colors={['#E6F4FF', '#F0E9FF', '#DCD9FF']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.hero}
           >
-            <View style={styles.heroTop}>
-              <Badge label="YOUR AI MATH WORKSPACE" tone="primary" icon="sparkles" />
-              <AppText variant="caption" color="muted">VERSION 4.1</AppText>
+            <Badge label="YOUR AI MATH WORKSPACE" tone="primary" icon="sparkles" />
+            <View style={styles.heroMain}>
+              <View style={styles.heroCopy}>
+                <AppText variant="display" style={styles.heroTitle}>{greeting()},</AppText>
+                <AppText variant="display" style={styles.heroName}>{firstName}</AppText>
+                <AppText color="muted" style={styles.heroDescription}>
+                  Turn any equation or document into editable, solvable math.
+                </AppText>
+              </View>
+              <View style={styles.formulaVisual} accessibilityLabel="MathLens equation preview">
+                <View style={styles.formulaBack}>
+                  <AppText variant="headline" color="ink">∫ x² dx</AppText>
+                  <AppText variant="headline" color="ink">= x³⁄₃ + C</AppText>
+                </View>
+                <View style={styles.formulaFront}>
+                  <AppText variant="headline" color="primary">∫ x² dx</AppText>
+                  <AppText variant="headline" color="primary">= x³⁄₃ + C</AppText>
+                </View>
+              </View>
             </View>
-            <View style={styles.heroCopy}>
-              <AppText variant="display" color="ink">See it. Scan it. Solve it.</AppText>
-              <AppText color="muted">
-                Capture printed or handwritten math and get structured, editable results in seconds.
-              </AppText>
+            <View style={styles.heroActions}>
+              <View style={styles.heroAction}>
+                <FeatureIcon name="camera-outline" tone="primary" size={38} />
+                <Muted style={styles.heroActionText}>Scan{'\n'}document</Muted>
+              </View>
+              <View style={styles.heroAction}>
+                <FeatureIcon name="document-text-outline" tone="accent" size={38} />
+                <Muted style={styles.heroActionText}>Extract{'\n'}math content</Muted>
+              </View>
+              <View style={styles.heroAction}>
+                <FeatureIcon name="bulb-outline" tone="warning" size={38} />
+                <Muted style={styles.heroActionText}>Get step-by-step{'\n'}solutions</Muted>
+              </View>
             </View>
-            <View style={styles.formulaPill}>
-              <AppText variant="headline" color="primary" selectable>∫ x² dx → x³⁄₃ + C</AppText>
-            </View>
-            <Button
-              title="Start a new scan"
-              icon="scan-outline"
-              variant="primary"
-              haptic
-              onPress={() => navigation.navigate('Scan')}
-              style={styles.heroButton}
-            />
           </LinearGradient>
         </Animated.View>
 
         <SectionHeader
           title="Quick capture"
-          subtitle="Choose a source and let MathLens structure it."
+          subtitle="Choose a source to get started."
+          action={<IconButton name="chevron-forward" accessibilityLabel="Open scan options" onPress={() => navigation.navigate('Scan')} />}
         />
+        <View style={styles.captureGrid}>
+          <PressableScale accessibilityLabel="Open photo scanner" onPress={() => navigation.navigate('Scan')} style={styles.capturePressable}>
+            <Card style={[styles.captureCard, styles.photoCard]}>
+              <FeatureIcon name="camera-outline" tone="primary" size={48} />
+              <AppText variant="headline">Photo scan</AppText>
+              <Muted>Camera or gallery</Muted>
+              <Button title="Open scanner" icon="arrow-forward" size="sm" onPress={() => navigation.navigate('Scan')} />
+            </Card>
+          </PressableScale>
+          <PressableScale accessibilityLabel="Open document scanner" onPress={() => navigation.navigate('Scan')} style={styles.capturePressable}>
+            <Card style={[styles.captureCard, styles.documentCard]}>
+              <FeatureIcon name="document-text-outline" tone="accent" size={48} />
+              <AppText variant="headline">Document</AppText>
+              <Muted>PDF, DOCX or TXT</Muted>
+              <Button title="Choose file" icon="arrow-forward" size="sm" variant="secondary" onPress={() => navigation.navigate('Scan')} />
+            </Card>
+          </PressableScale>
+        </View>
 
-        <View style={styles.quickGrid}>
-          {quickActions.map((action, index) => (
-            <Animated.View
-              key={action.title}
-              entering={FadeInDown.duration(motion.base).delay(120 + index * 60).reduceMotion(ReduceMotion.System)}
-              style={[styles.quickItem, twoColumns && styles.quickItemTwoColumn]}
-            >
-              <PressableScale
-                accessibilityLabel={action.title}
-                onPress={() => navigation.navigate('Scan')}
-              >
-                <Card style={styles.quickCard}>
-                  <FeatureIcon name={action.icon} tone={action.tone} />
-                  <View style={styles.quickCopy}>
-                    <AppText variant="headline">{action.title}</AppText>
-                    <Muted style={styles.quickDescription}>{action.description}</Muted>
-                  </View>
-                  <FeatureIcon name="arrow-forward" size={34} />
-                </Card>
-              </PressableScale>
-            </Animated.View>
+        <View style={styles.featureGrid}>
+          {[
+            ['create-outline', 'Handwritten math', 'primary'],
+            ['calculator-outline', 'Solve with steps', 'accent'],
+            ['create-outline', 'Editable results', 'warning'],
+            ['cloud-done-outline', 'Cloud synced', 'primary'],
+          ].map(([icon, label, tone]) => (
+            <Card key={label} style={styles.featureCard}>
+              <FeatureIcon name={icon} tone={tone} size={38} />
+              <AppText variant="caption" style={styles.featureLabel}>{label}</AppText>
+            </Card>
           ))}
         </View>
 
         <SectionHeader
-          title="One intelligent workflow"
-          subtitle="From raw image to a polished answer and export."
+          title="Recent scans"
+          action={<Button title="See all" icon="arrow-forward" variant="ghost" size="sm" onPress={() => navigation.navigate('History')} />}
         />
-
-        <Card style={styles.capabilities}>
-          {capabilities.map(([icon, title, description], index) => (
-            <View key={title}>
-              <View style={styles.capabilityRow}>
-                <FeatureIcon name={icon} size={42} tone={index === 1 ? 'accent' : 'primary'} />
-                <View style={styles.capabilityCopy}>
-                  <AppText variant="bodyStrong">{title}</AppText>
-                  <Muted>{description}</Muted>
-                </View>
-              </View>
-              {index < capabilities.length - 1 && <View style={styles.divider} />}
+        {recentError ? (
+          <Card tone="warning">
+            <AppText variant="bodyStrong" color="warning">{recentError}</AppText>
+          </Card>
+        ) : recentScans.length ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recentList}
+          >
+            {recentScans.map(scan => (
+              <RecentScan key={scan._id} scan={scan} onPress={() => navigation.navigate('Result', { scan })} />
+            ))}
+          </ScrollView>
+        ) : (
+          <Card style={styles.emptyRecent}>
+            <FeatureIcon name="time-outline" tone="primary" size={42} />
+            <View style={styles.emptyCopy}>
+              <AppText variant="bodyStrong">No recent scans yet</AppText>
+              <Muted>Your completed scans will appear here.</Muted>
             </View>
-          ))}
-        </Card>
-
-        <View style={styles.trustRow}>
-          <Badge label="Cloud synced" tone="neutral" icon="cloud-done-outline" />
-          <Badge label="Editable results" tone="neutral" icon="create-outline" />
-        </View>
+            <Button title="Start scanning" size="sm" onPress={() => navigation.navigate('Scan')} />
+          </Card>
+        )}
       </ScrollScreen>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  intro: {
-    gap: spacing.xxs,
+  content: {
+    paddingBottom: spacing.huge,
+    gap: spacing.lg,
   },
   hero: {
     borderRadius: radius.xl,
-    borderCurve: 'continuous',
-    padding: spacing.xl,
-    gap: spacing.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
     overflow: 'hidden',
-    boxShadow: shadows.raised,
     borderWidth: 1,
-    borderColor: '#E2DEFF',
+    borderColor: '#DDE0FF',
+    boxShadow: shadows.raised,
   },
-  heroTop: {
+  heroTitle: {
+    color: C.ink,
+    fontSize: 30,
+    lineHeight: 34,
+  },
+  heroName: {
+    color: C.primary,
+    fontSize: 34,
+    lineHeight: 36,
+  },
+  heroMain: {
+    minHeight: 220,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   heroCopy: {
-    gap: spacing.xs,
-  },
-  formulaPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2DEFF',
-  },
-  heroButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  quickItem: {
-    width: '100%',
-  },
-  quickItemTwoColumn: {
     flex: 1,
-    minWidth: 150,
-  },
-  quickCard: {
-    minHeight: 190,
-    justifyContent: 'space-between',
-    gap: spacing.lg,
-  },
-  quickCopy: {
     gap: spacing.xxs,
   },
-  quickDescription: {
-    minHeight: 42,
+  heroDescription: {
+    paddingTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 19,
   },
-  capabilities: {
-    gap: spacing.md,
+  formulaVisual: {
+    width: 130,
+    height: 170,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '7deg' }],
   },
-  capabilityRow: {
+  formulaBack: {
+    position: 'absolute',
+    top: 8,
+    right: -4,
+    width: 116,
+    minHeight: 112,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    padding: spacing.sm,
+    transform: [{ rotate: '-4deg' }],
+  },
+  formulaFront: {
+    width: 126,
+    minHeight: 122,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    padding: spacing.sm,
+    boxShadow: shadows.card,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  heroAction: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  heroActionText: {
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  captureGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  capturePressable: {
+    flex: 1,
+  },
+  captureCard: {
+    minHeight: 204,
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  photoCard: {
+    backgroundColor: '#F6EEFF',
+  },
+  documentCard: {
+    backgroundColor: '#E8FBF8',
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  featureCard: {
+    flex: 1,
+    minHeight: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  featureLabel: {
+    textAlign: 'center',
+  },
+  recentList: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  recentPressable: {
+    width: 184,
+  },
+  recentCard: {
+    minHeight: 162,
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  recentPreview: {
+    height: 92,
+    borderRadius: radius.md,
+    backgroundColor: '#F5F6F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  previewText: {
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  emptyRecent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  capabilityCopy: {
+  emptyCopy: {
     flex: 1,
-  },
-  divider: {
-    height: 1,
-    marginTop: spacing.md,
-    backgroundColor: C.border,
-  },
-  trustRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.xxs,
   },
 });

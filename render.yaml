@@ -25,16 +25,10 @@ services:
         sync: false
       - key: ADMIN_NAME
         value: Administrator
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEYS
         sync: false
-      - key: OPENAI_OCR_MODEL
-        value: gpt-5.6
-      - key: OPENAI_OCR_REASONING_EFFORT
-        value: high
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_OCR_MODEL
-        value: gemini-3.5-flash
+      - key: GEMINI_OCR_MODELS
+        value: gemini-2.5-flash,gemini-2.5-pro,gemini-3.5-flash
       - key: OCR_TIMEOUT_MS
         value: 90000
       - key: OCR_MAX_RETRIES
