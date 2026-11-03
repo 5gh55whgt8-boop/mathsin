@@ -32,7 +32,7 @@ const pdfText = value => String(value || '')
     α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon',
     θ: 'theta', λ: 'lambda', μ: 'mu', π: 'pi'
   }[character] || character)
-  .replace(/[^\x00-\xFF]/g, '?');
+  .replace(/[^\x00-\xFF]/g, '?'))
 
 router.post('/images-pdf', imageUpload.array('images', 20), async (req, res, next) => {
   try {
