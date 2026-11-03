@@ -51,7 +51,7 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   maxFileSize: Number(process.env.MAX_FILE_SIZE || 20 * 1024 * 1024),
   geminiKeys: [...new Set(geminiKeys)],
-  geminiModels: [...new Set(geminiModels.length ? geminiModels : ['gemini-2.5-flash'])],
+  geminiModels: [...new Set(geminiModels.length ? geminiModels : ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite'])],
   ocrTimeoutMs: integerSetting('OCR_TIMEOUT_MS', 90000, 10000, 180000),
   ocrMaxRetries: integerSetting('OCR_MAX_RETRIES', 2, 0, 3),
   ocrConcurrency: integerSetting('OCR_CONCURRENCY', 2, 1, 4),
