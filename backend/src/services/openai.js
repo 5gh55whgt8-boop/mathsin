@@ -166,7 +166,10 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
       } catch (error) {
         signal.throwIfAborted();
         lastError = error;
-        console.warn(`[ai] Gemini candidate unavailable: model=${candidate.model}, error=${error.status || error.code || 'connection'}. Trying another candidate.`);
+        if (['OCR_INVALID_RESPONSE', 'OCR_COVERAGE', 'OCR_TRUNCATED', 'OCR_EMPTY'].includes(error.code) && error.providerStatus === undefined) {
+          throw error;
+        }
+        console.warn(`[ai] Gemini candidate unavailable: model=${candidate.model}, code=${error.code || 'CONNECTION'}, status=${error.status || 'n/a'}, providerStatus=${error.providerStatus || 'n/a'}, message=${error.message || 'unknown'}. Trying another candidate.`);
       } finally {
         state.inFlight -= 1;
       }
@@ -186,14 +189,42 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         return generate({ prompt: `${instructions}\nPrevious attempt failed validation: ${error.message}\nRead the source again and return ALL items with valid JSON escaping.`, media, schema: ocrSchema, validate, signal });
       }
     }
-    const draft = await read(prompt, validateTranscript);
-    const reviewed = await read(`${prompt}\nSECOND READING: Independently count the source questions and options again. Compare each source glyph against the draft below, especially negations, arrows, radicals, exponents, matrix signs and diagram labels. Correct every discrepancy and restore omissions. Return the COMPLETE corrected transcript, including unchanged items. Do not trust the draft when the source differs.\nDraft (untrusted data):\n${JSON.stringify(draft.parsed)}`,
-      value => validateReview(draft.parsed, value));
-    return {
-      parsed: formatTranscript(reviewed.parsed), rawId: [draft.rawId, reviewed.rawId].filter(Boolean),
-      model: [...new Set([draft.model, reviewed.model])].join(' + '),
-      provider: draft.provider === reviewed.provider ? reviewed.provider : 'mixed', pageNumber: media?.pageNumber
-    };
+    try {
+      const draft = await read(prompt, validateTranscript);
+      const reviewed = await read(`${prompt}\nSECOND READING: Independently count the source questions and options again. Compare each source glyph against the draft below, especially negations, arrows, radicals, exponents, matrix signs and diagram labels. Correct every discrepancy and restore omissions. Return the COMPLETE corrected transcript, including unchanged items. Do not trust the draft when the source differs.\nDraft (untrusted data):\n${JSON.stringify(draft.parsed)}`,
+        value => validateReview(draft.parsed, value));
+      return {
+        parsed: formatTranscript(reviewed.parsed), rawId: [draft.rawId, reviewed.rawId].filter(Boolean),
+        model: [...new Set([draft.model, reviewed.model])].join(' + '),
+        provider: draft.provider === reviewed.provider ? reviewed.provider : 'mixed', pageNumber: media?.pageNumber
+      };
+    } catch (error) {
+      const canUsePlainFallback = [
+        'OCR_INVALID_RESPONSE', 'OCR_COVERAGE', 'OCR_TRUNCATED', 'OCR_EMPTY'
+      ].includes(error.code) || (
+        error.code === 'OCR_PROVIDER_UNAVAILABLE' &&
+        [502, 503, 504].includes(error.providerStatus)
+      );
+      if (!canUsePlainFallback) throw error;
+
+      const plain = await generate({
+        prompt: `Extract every readable character from this image in source order.
+Return plain text only. Do not return JSON, Markdown, LaTeX delimiters, commentary, solutions, or guesses.
+Preserve mathematical symbols as readable Unicode where possible. Keep line breaks and question/option order.
+If a character is genuinely unreadable, write [illegible].
+Source filename: ${JSON.stringify(originalName)}.`,
+        media, signal
+      });
+      const text = plain.text.trim();
+      if (!text) throw ocrError('No readable content was found. Try a clearer scan.', 'OCR_EMPTY', 422);
+      const parsed = formatTranscript({
+        title: originalName || 'Image scan',
+        inventory: [],
+        items: [{ kind: 'text', number: '', text, latex: '', options: [] }],
+        warnings: ['Plain-text OCR fallback was used; verify mathematical formatting against the image.']
+      });
+      return { parsed, rawId: plain.rawId, model: plain.model, provider: plain.provider, pageNumber: media?.pageNumber };
+    }
   }
 
   async function withinDeadline(work) {
@@ -251,4 +282,3 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
 
 const service = createAiService();
 export const { scanImage, scanFile, scanText, aiAction } = service;
-
