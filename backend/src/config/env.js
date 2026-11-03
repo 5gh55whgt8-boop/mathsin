@@ -22,8 +22,8 @@ const listSetting = (...values) => values
   .filter(Boolean);
 const geminiKeys = listSetting(
   process.env.GEMINI_API_KEYS,
-  ...Array.from({ length: 5 }, (_, index) => process.env[`GEMINI_API_KEY_${index + 1}`]),
-  process.env.GEMINI_API_KEY
+  process.env.GEMINI_API_KEY,
+  ...Array.from({ length: 20 }, (_, index) => process.env[`GEMINI_API_KEY_${index + 1}`])
 );
 const geminiModels = listSetting(
   process.env.GEMINI_OCR_MODELS,
@@ -31,9 +31,7 @@ const geminiModels = listSetting(
   process.env.GEMINI_OCR_MODEL
 ).map(model => model.replace(/^models\//i, ''));
 
-if (!geminiKeys.length) {
-  console.warn('[env] Missing GEMINI_API_KEYS');
-}
+if (!geminiKeys.length) console.warn('[env] Missing Gemini API keys. Set GEMINI_API_KEYS or GEMINI_API_KEY_1..N.');
 for (const key of required) {
   if (!process.env[key]) console.warn(`[env] Missing ${key}`);
 }

@@ -27,6 +27,8 @@ services:
         value: Administrator
       - key: GEMINI_API_KEYS
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: GEMINI_API_KEY_1
         sync: false
       - key: GEMINI_API_KEY_2

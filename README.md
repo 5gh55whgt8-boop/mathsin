@@ -127,7 +127,8 @@ The backend automatically ensures the configured admin account exists on startup
 ## OCR provider behavior
 
 Gemini is the only OCR provider. Configure five comma-separated keys in
-`GEMINI_API_KEYS` and the available models in `GEMINI_OCR_MODELS`. Each request
+`GEMINI_API_KEYS` (or `GEMINI_API_KEY_1` through `GEMINI_API_KEY_5`; the
+singular `GEMINI_API_KEY` also accepts a comma-separated list) and the available models in `GEMINI_OCR_MODELS`. Each request
 shuffles all key/model combinations uniformly. If a candidate reaches a quota
 limit, it is temporarily skipped and the request continues with another Gemini
 candidate; no OpenAI key is used.
