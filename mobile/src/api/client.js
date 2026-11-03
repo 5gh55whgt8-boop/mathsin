@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const productionApiUrl = 'https://mathlens-ai-api.onrender.com/api';
+const productionApiUrl = 'https://mathlens-ai-api-bhasker.onrender.com/api';
 const configuredApiUrl = typeof process.env.EXPO_PUBLIC_API_URL === 'string'
   ? process.env.EXPO_PUBLIC_API_URL.trim()
   : '';
