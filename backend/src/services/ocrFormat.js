@@ -25,8 +25,8 @@ For tables preserve every cell and label. For diagrams/circuits include an expli
 Only genuinely unreadable characters become [illegible] at their exact position with a specific warning. Mark cut-off content honestly. Never attribute absent symbols to text extraction; inspect the page image. Never create blanks for legible source text.
 Check every formula, option and inventory entry against the original before returning complete JSON.`;
 
-export function ocrError(message, code = 'OCR_INVALID_RESPONSE', status = 502) {
-  return Object.assign(new Error(message), { code, status });
+export function ocrError(message, code = 'OCR_INVALID_RESPONSE', status = 502, details = {}) {
+  return Object.assign(new Error(message), { code, status, ...details });
 }
 const labelKey = value => value.trim().replace(/^[([]|[)\].:]$/g, '').trim();
 const numberKey = value => value.trim().replace(/[.)]$/, '');

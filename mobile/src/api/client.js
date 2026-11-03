@@ -37,7 +37,15 @@ export function describeApiFailure(error, operation) {
   if (status === 401 || status === 403) return `${operation} failed: authentication is required`;
   if (status === 402) return `${operation} failed: the connected API still has the old scan limit enabled. Redeploy the latest backend and try again.`;
   if (status === 400 || status === 422) return `${operation} failed: request data was rejected (${status})`;
-  if (status >= 500) return `${operation} failed: backend returned ${status}`;
+  if (status >= 500) {
+    if (error?.response?.data?.code === 'OCR_PROVIDER_QUOTA') {
+      return `${operation} failed because all configured Gemini keys are temporarily out of quota. Try again after the quota window resets.`;
+    }
+    if (error?.response?.data?.code === 'OCR_PROVIDER_UNAVAILABLE') {
+      return `${operation} failed because all configured Gemini models or keys were unavailable. Verify the deployed Gemini configuration and try again.`;
+    }
+    return `${operation} failed: backend returned ${status}`;
+  }
   if (!error?.response) return `${operation} failed: backend is unreachable or the network is unavailable`;
   return `${operation} failed: HTTP ${status}`;
 }

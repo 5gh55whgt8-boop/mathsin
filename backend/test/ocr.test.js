@@ -157,13 +157,15 @@ test('a failed PDF page stops queued pages and never returns a partial scan', as
   assert.equal(calls, 1);
 });
 
-test('quota failures rotate uniformly across Gemini key/model candidates', async () => {
+test('quota failures skip the exhausted key and rotate to another key/model', async () => {
   const requests = [];
+  let calls = 0;
   const service = createAiService({
-    config: { ...config, geminiKeys: ['key-a', 'key-b'], geminiModels: ['model-a', 'model-b'] },
+    config: { ...config, geminiKeys: ['key-a', 'key-b'], geminiModels: ['model-a'], ocrMaxRetries: 0 },
     fetchImpl: async (url, request) => {
+      calls += 1;
       requests.push({ url, key: request.headers['x-goog-api-key'] });
-      if (requests.length < 4) {
+      if (calls === 1) {
         return { ok: false, status: 429, json: async () => ({ error: { details: [{ violations: [{ quotaId: 'perMinute' }] }] } }) };
       }
       return reply(transcript());
@@ -171,9 +173,56 @@ test('quota failures rotate uniformly across Gemini key/model candidates', async
   });
   const result = await service.scanText('source');
   assert.equal(result.provider, 'gemini');
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 2);
   assert.equal(new Set(requests.map(request => request.key)).size, 2);
-  assert.equal(new Set(requests.map(request => `${request.key}:${request.url}`)).size, 4);
+});
+
+test('model failure tries another configured model on the same key', async () => {
+  const requests = [];
+  const service = createAiService({
+    config: { ...config, geminiKeys: ['key-a'], geminiModels: ['model-a', 'model-b'] },
+    fetchImpl: async (url, request) => {
+      requests.push(url);
+      if (requests.length === 1) return { ok: false, status: 400, json: async () => ({ error: { status: 'INVALID_ARGUMENT' } }) };
+      return reply(transcript());
+    }
+  });
+  const result = await service.scanText('source');
+  assert.equal(result.provider, 'gemini');
+  assert.equal(requests.length, 2);
+  assert.notEqual(requests[0], requests[1]);
+});
+
+test('concurrent OCR requests reserve different available keys', async () => {
+  const keys = [];
+  const service = createAiService({
+    config: { ...config, geminiKeys: ['key-a', 'key-b'], geminiModels: ['model-a'] },
+    fetchImpl: async (url, request) => {
+      keys.push(request.headers['x-goog-api-key']);
+      await new Promise(resolve => setTimeout(resolve, 5));
+      return reply(transcript());
+    }
+  });
+  await Promise.all([service.scanText('first'), service.scanText('second')]);
+  assert.deepEqual(new Set(keys), new Set(['key-a', 'key-b']));
+});
+
+test('transient provider errors use exponential backoff and Retry-After', async () => {
+  const delays = [];
+  let calls = 0;
+  const service = createAiService({
+    config: { ...config, geminiKeys: ['key-a'], geminiModels: ['model-a'], ocrMaxRetries: 2 },
+    sleep: async delay => delays.push(delay),
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return { ok: false, status: 500, headers: { 'retry-after': '2' }, json: async () => ({}) };
+      if (calls === 2) return { ok: false, status: 503, headers: { 'retry-after': '5' }, json: async () => ({}) };
+      return reply(transcript());
+    }
+  });
+  await service.scanText('source');
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [2000, 5000]);
 });
 
 test('overall deadline aborts an in-flight provider request', async () => {

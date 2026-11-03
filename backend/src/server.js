@@ -41,7 +41,7 @@ app.use((err, req, res, next) => {
   const message = status >= 500
     ? 'We could not complete the scan right now. Please try again.'
     : err.message || 'The request could not be completed.';
-  res.status(status).json({ error: message });
+  res.status(status).json({ error: message, ...(err.code?.startsWith('OCR_') ? { code: err.code } : {}) });
 });
 
 await connectDb();

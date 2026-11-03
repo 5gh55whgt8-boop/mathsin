@@ -28,6 +28,21 @@ function safeExt(originalName = '', mimeType = '') {
   return byMime[mimeType] || '';
 }
 
+function imageMimeType(file) {
+  const mimeType = String(file?.mimetype || '').toLowerCase();
+  if (mimeType === 'image/jpg') return 'image/jpeg';
+  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/heic', 'image/heif'].includes(mimeType)) {
+    return mimeType;
+  }
+  const ext = path.extname(file?.originalname || '').toLowerCase();
+  const byExt = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp',
+    '.heic': 'image/heic', '.heif': 'image/heif'
+  };
+  return byExt[ext];
+}
+
 async function persistOriginal(req, sourceType) {
   if (sourceType !== 'image' || !req.file?.path) return undefined;
   const storedFile = `${crypto.randomUUID()}${safeExt(req.file.originalname, req.file.mimetype)}`;
@@ -115,8 +130,9 @@ router.post('/local', async (req, res, next) => {
 router.post('/image', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
-    if (!req.file.mimetype.startsWith('image/')) return res.status(415).json({ error: 'Image required' });
-    const result = await scanImage(req.file.path, req.file.mimetype);
+    const mimeType = imageMimeType(req.file);
+    if (!mimeType) return res.status(415).json({ error: 'JPEG, PNG, WEBP, GIF, BMP or HEIC image required' });
+    const result = await scanImage(req.file.path, mimeType);
     res.status(201).json({ scan: await saveResult(req, result, 'image') });
   } catch (e) { next(e); }
   finally { fs.unlink(req.file.path).catch(() => {}); }

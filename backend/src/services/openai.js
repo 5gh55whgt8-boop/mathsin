@@ -24,6 +24,20 @@ function pause(ms, signal) {
   });
 }
 
+function responseHeader(response, name) {
+  if (typeof response.headers?.get === 'function') return response.headers.get(name);
+  return response.headers?.[name] || response.headers?.[name.toLowerCase()];
+}
+
+function retryAfterMs(response) {
+  const value = responseHeader(response, 'retry-after');
+  if (!value) return 0;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? Math.max(0, timestamp - Date.now()) : 0;
+}
+
 // Inject clients for deterministic tests without sending documents to providers.
 export function createAiService({ config = env, fetchImpl = globalThis.fetch, client, sleep = pause } = {}) {
   const keys = [...new Set((config.geminiKeys || (config.geminiKey ? [config.geminiKey] : []))
@@ -33,14 +47,43 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
     .map(value => value.trim().replace(/^models\//i, ''))
     .filter(Boolean))];
   const unavailableUntil = new Map();
+  const keyState = new Map(keys.map(key => [key, { unavailableUntil: 0, inFlight: 0 }]));
 
-  function shuffledCandidates() {
-    const candidates = keys.flatMap(key => models.map(model => ({ key, model })));
-    for (let index = candidates.length - 1; index > 0; index -= 1) {
+  function shuffled(values) {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(Math.random() * (index + 1));
-      [candidates[index], candidates[swap]] = [candidates[swap], candidates[index]];
+      [result[index], result[swap]] = [result[swap], result[index]];
     }
-    return candidates;
+    return result;
+  }
+
+  function candidateOrder() {
+    const now = Date.now();
+    const availableKeys = shuffled(keys.filter(key => (keyState.get(key)?.unavailableUntil || 0) <= now))
+      .sort((left, right) => (
+        (keyState.get(left)?.inFlight || 0) - (keyState.get(right)?.inFlight || 0)
+      ));
+    return availableKeys.flatMap(key => shuffled(models).map(model => ({ key, model })));
+  }
+
+  function reserveCandidate(candidate) {
+    const state = keyState.get(candidate.key);
+    const candidateId = `${candidate.key}:${candidate.model}`;
+    const now = Date.now();
+    if (!state || state.unavailableUntil > now || (unavailableUntil.get(candidateId) || 0) > now) return null;
+    const hasIdleKey = keys.some(key => {
+      const other = keyState.get(key);
+      return other && other.inFlight === 0 && other.unavailableUntil <= now;
+    });
+    if (hasIdleKey && state.inFlight > 0) return null;
+    state.inFlight += 1;
+    return state;
+  }
+
+  function markKeyUnavailable(key, durationMs) {
+    const state = keyState.get(key);
+    if (state) state.unavailableUntil = Math.max(state.unavailableUntil, Date.now() + durationMs);
   }
 
   async function gemini(parts, schema, signal, candidate) {
@@ -75,26 +118,40 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
       const dailyQuota = details.some(detail => (detail.violations || []).some(violation => /perday|daily/i.test(violation.quotaId || '')));
       const transient = [408, 429, 500, 502, 503, 504].includes(response.status);
       const retryInfo = details.find(detail => String(detail['@type']).endsWith('RetryInfo'));
-      const retryMs = Math.min(60000, Math.max(1000, (parseFloat(retryInfo?.retryDelay) || 1) * 1000));
+      const providerRetryMs = (parseFloat(retryInfo?.retryDelay) || 0) * 1000;
+      const retryMs = Math.min(60000, Math.max(1000, retryAfterMs(response), providerRetryMs));
       if (transient && response.status !== 429 && !dailyQuota && attempt < config.ocrMaxRetries) {
-        await sleep(response.status === 429 ? retryMs : 750 * (attempt + 1), signal);
+        const exponentialMs = Math.min(60000, 500 * (2 ** attempt));
+        await sleep(Math.max(exponentialMs, retryMs), signal);
         continue;
       }
       console.warn(`[ai] Gemini unavailable: status=${response.status}, dailyQuota=${dailyQuota}`);
       if (response.status === 429) {
-        unavailableUntil.set(candidateId, Date.now() + (dailyQuota ? 5 * 60 * 1000 : retryMs));
-        throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503);
+        const cooldownMs = dailyQuota ? Math.max(5 * 60 * 1000, retryMs) : retryMs;
+        unavailableUntil.set(candidateId, Date.now() + cooldownMs);
+        markKeyUnavailable(candidate.key, cooldownMs);
+        throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503, {
+          providerStatus: response.status
+        });
       }
       if ([400, 401, 403].includes(response.status)) {
-        unavailableUntil.set(candidateId, Date.now() + (response.status === 400 ? 60 * 60 * 1000 : 15 * 60 * 1000));
+        const cooldownMs = response.status === 400 ? 60 * 60 * 1000 : 15 * 60 * 1000;
+        unavailableUntil.set(candidateId, Date.now() + cooldownMs);
+        if ([401, 403].includes(response.status)) markKeyUnavailable(candidate.key, cooldownMs);
       }
-      throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
+      throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503, {
+        providerStatus: response.status
+      });
     }
   }
 
   async function generate({ prompt, media, schema, validate, signal }) {
     let lastError;
-    for (const candidate of shuffledCandidates()) {
+    for (const candidate of candidateOrder()) {
+      // Claim the key immediately before the first await. This prevents
+      // concurrent scans from selecting the same least-busy key.
+      const state = reserveCandidate(candidate);
+      if (!state) continue;
       try {
         const parts = [...(media ? [{ inlineData: { mimeType: media.mimeType, data: media.data } }] : []), { text: prompt }];
         const result = await gemini(parts, schema, signal, candidate);
@@ -103,8 +160,11 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         signal.throwIfAborted();
         lastError = error;
         console.warn(`[ai] Gemini candidate unavailable: model=${candidate.model}, error=${error.status || error.code || 'connection'}. Trying another candidate.`);
+      } finally {
+        state.inFlight -= 1;
       }
     }
+    if (!lastError && keys.length) throw ocrError('Scanner capacity is temporarily unavailable. Please try again later.', 'OCR_PROVIDER_QUOTA', 503);
     if (lastError?.code?.startsWith('OCR_')) throw lastError;
     throw ocrError('The scanner is unavailable. Please contact support or try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503);
   }
