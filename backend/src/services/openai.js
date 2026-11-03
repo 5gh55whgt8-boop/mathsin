@@ -114,6 +114,13 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         throw ocrError('The scanner could not be reached. Please try again shortly.', 'OCR_CONNECTION', 503);
       }
       if (response.ok) return { text: readGeminiResponse(payload), rawId: payload.responseId, model: candidate.model };
+
+      console.error('[ai] Gemini provider error:', JSON.stringify({
+        status: response.status,
+        model: candidate.model,
+        error: payload?.error || payload
+      }));
+
       const details = payload?.error?.details || [];
       const dailyQuota = details.some(detail => (detail.violations || []).some(violation => /perday|daily/i.test(violation.quotaId || '')));
       const transient = [408, 429, 500, 502, 503, 504].includes(response.status);
@@ -244,3 +251,4 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
 
 const service = createAiService();
 export const { scanImage, scanFile, scanText, aiAction } = service;
+
