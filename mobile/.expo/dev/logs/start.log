@@ -265,3 +265,68 @@
 {"_e":"metro:bundling:progress","_t":1793720328216,"id":"2","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:done","_t":1793720328268,"id":"2","total":1,"ms":52.1464}
 {"_e":"metro:client_log","_t":1793720418538,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_PROVIDER_UNAVAILABLE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"root:init","_t":1793721304709,"format":"v0-jsonl","version":"57.0.32"}
+{"_e":"devserver:start","_t":1793721304882,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1793721307995,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1793721308631,"plugins":[]}
+{"_e":"metro:instantiate","_t":1793721316857,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1793721329277,"id":"1","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793721329277,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793721329281,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793721329381,"id":"1","progress":0.01767516455611614,"total":173,"current":23}
+{"_e":"metro:bundling:progress","_t":1793721329481,"id":"1","progress":0.1865697212247471,"total":382,"current":165}
+{"_e":"metro:bundling:progress","_t":1793721329585,"id":"1","progress":0.2777574872169466,"total":592,"current":312}
+{"_e":"metro:bundling:progress","_t":1793721329685,"id":"1","progress":0.40198214475502175,"total":776,"current":492}
+{"_e":"metro:bundling:progress","_t":1793721329785,"id":"1","progress":0.5888146392412488,"total":937,"current":719}
+{"_e":"metro:bundling:progress","_t":1793721329890,"id":"1","progress":0.6986633413998111,"total":1121,"current":937}
+{"_e":"metro:bundling:progress","_t":1793721329991,"id":"1","progress":0.7865332328553115,"total":1264,"current":1121}
+{"_e":"metro:bundling:progress","_t":1793721330091,"id":"1","progress":0.8816657655709342,"total":1360,"current":1277}
+{"_e":"metro:bundling:progress","_t":1793721330192,"id":"1","progress":0.999,"total":1493,"current":1493}
+{"_e":"metro:bundling:done","_t":1793721330264,"id":"1","total":1493,"ms":987.3605}
+{"_e":"metro:client_log","_t":1793721360526,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_PROVIDER_UNAVAILABLE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:bundling:started","_t":1793721496410,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793721496410,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1793721496457,"id":"3","total":1,"ms":46.9068}
+{"_e":"metro:client_log","_t":1793721524120,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_PROVIDER_UNAVAILABLE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:client_log","_t":1793722298981,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_COVERAGE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:client_log","_t":1793722929499,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_COVERAGE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:client_log","_t":1793723957002,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_COVERAGE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:client_log","_t":1793724333026,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_COVERAGE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"root:init","_t":1793724452976,"format":"v0-jsonl","version":"57.0.32"}
+{"_e":"devserver:start","_t":1793724453020,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1793724454086,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1793724454782,"plugins":[]}
+{"_e":"metro:instantiate","_t":1793724464959,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1793724492950,"id":"1","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793724492950,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793724492956,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793724493060,"id":"1","progress":0.025112723580877305,"total":183,"current":29}
+{"_e":"metro:bundling:progress","_t":1793724493161,"id":"1","progress":0.18924957706916912,"total":354,"current":154}
+{"_e":"metro:bundling:progress","_t":1793724493261,"id":"1","progress":0.18924957706916912,"total":382,"current":165}
+{"_e":"metro:bundling:progress","_t":1793724493573,"id":"1","progress":0.18924957706916912,"total":382,"current":166}
+{"_e":"metro:bundling:progress","_t":1793724493676,"id":"1","progress":0.3035865001731302,"total":608,"current":335}
+{"_e":"metro:bundling:progress","_t":1793724493776,"id":"1","progress":0.3485451357123652,"total":769,"current":454}
+{"_e":"metro:bundling:progress","_t":1793724493876,"id":"1","progress":0.582100020786508,"total":907,"current":692}
+{"_e":"metro:bundling:progress","_t":1793724493976,"id":"1","progress":0.6800600487896417,"total":1095,"current":903}
+{"_e":"metro:bundling:progress","_t":1793724494076,"id":"1","progress":0.722712338663104,"total":1201,"current":1021}
+{"_e":"metro:bundling:progress","_t":1793724494176,"id":"1","progress":0.8433127440125866,"total":1310,"current":1203}
+{"_e":"metro:bundling:progress","_t":1793724494276,"id":"1","progress":0.9469303210463733,"total":1450,"current":1411}
+{"_e":"metro:bundling:done","_t":1793724494394,"id":"1","total":1450,"ms":1443.9182}
+{"_e":"metro:client_log","_t":1793724818886,"level":"error","data":["SCAN ERROR","{\"code\": \"OCR_COVERAGE\", \"error\": \"We could not complete the scan right now. Please try again.\"}"]}
+{"_e":"metro:bundling:started","_t":1793726818357,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793726818358,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1793726818427,"id":"3","total":1,"ms":69.4054}
+{"_e":"metro:bundling:started","_t":1793728703116,"id":"4","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1793728703116,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728703122,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728703307,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704018,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704118,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704218,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704318,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704418,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704518,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704618,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704718,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1793728704852,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1793728705010,"id":"4","total":1,"ms":1894.1547}
