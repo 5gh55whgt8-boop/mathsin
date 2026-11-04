@@ -24,15 +24,6 @@ import { C, gradients, radius, shadows, spacing } from '../theme';
 
 const sources = [
   {
-    key: 'quick-camera',
-    title: 'Scan Text (Camera)',
-    description: 'Scan printed text only.',
-    icon: 'camera-outline',
-    tone: 'primary',
-    category: '',
-    cardColor: '#F6F0FF',
-  },
-  {
     key: 'quick-upload',
     title: 'Scan Text (Gallery)',
     description: 'Select a printed image from gallery.',
@@ -144,7 +135,6 @@ export default function ScanScreen({ navigation }) {
   }
 
   async function chooseSource(key) {
-    if (key === 'quick-camera') return image(true, 'quick');
     if (key === 'quick-upload') return image(false, 'quick');
     if (key === 'ai-camera') return image(true);
     if (key === 'ai-upload') return image(false);
