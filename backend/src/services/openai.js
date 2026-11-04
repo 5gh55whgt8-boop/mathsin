@@ -239,6 +239,30 @@ Source filename: ${JSON.stringify(originalName)}.`,
       const data = await fs.readFile(path, 'base64');
       return transcribePage({ data, mimeType }, 'image-scan', controller.signal);
     }),
+    scanImages: (files = []) => withinDeadline(async controller => {
+      if (!files.length) throw ocrError('No images provided for scanning.', 'OCR_EMPTY', 400);
+      if (files.length === 1) {
+        const data = await fs.readFile(files[0].path, 'base64');
+        return transcribePage({ data, mimeType: files[0].mimetype, pageNumber: 1 }, files[0].originalname || 'image-scan', controller.signal);
+      }
+      const results = new Array(files.length);
+      let next = 0;
+      const worker = async () => {
+        while (next < files.length) {
+          controller.signal.throwIfAborted();
+          const index = next++;
+          try {
+            const data = await fs.readFile(files[index].path, 'base64');
+            results[index] = await transcribePage({ data, mimeType: files[index].mimetype, pageNumber: index + 1 }, files[index].originalname || `page-${index + 1}`, controller.signal);
+          } catch (error) {
+            controller.abort(error);
+            throw error;
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(config.ocrConcurrency || 2, files.length) }, worker));
+      return mergePageResults(results, files[0].originalname || 'multi-page-scan');
+    }),
     scanFile: (path, mimeType, originalName) => withinDeadline(async controller => {
       if (mimeType !== 'application/pdf') throw ocrError('Upload a PDF or image for visual math scanning.', 'OCR_FILE_TYPE', 415);
       // Never split arbitrary pages into columns: full-width equations and
@@ -281,4 +305,4 @@ Source filename: ${JSON.stringify(originalName)}.`,
 }
 
 const service = createAiService();
-export const { scanImage, scanFile, scanText, aiAction } = service;
+export const { scanImage, scanImages, scanFile, scanText, aiAction } = service;

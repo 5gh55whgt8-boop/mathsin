@@ -15,6 +15,8 @@ const scanSchema = new mongoose.Schema({
   mimeType: String,
   originalName: String,
   storedFile: String,
+  storedFiles: { type: [String], default: [] },
+  pageCount: { type: Number, default: 1 },
   plainText: { type: String, default: '' },
   latex: { type: String, default: '' },
   markdown: { type: String, default: '' },

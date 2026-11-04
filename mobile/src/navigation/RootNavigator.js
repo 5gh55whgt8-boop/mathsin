@@ -1,13 +1,16 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import VerifyOtpScreen from '../screens/VerifyOtpScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ScanScreen from '../screens/ScanScreen';
 import HistoryScreen from '../screens/HistoryScreen';
@@ -19,6 +22,8 @@ import { C, radius, shadows, spacing } from '../theme';
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
+
+const ONBOARDING_KEY = '@mathlens_onboarding_complete';
 
 const tabIcons = {
   Home: ['home', 'home-outline'],
@@ -50,7 +55,13 @@ function MainTabs() {
         tabBarHideOnKeyboard: true,
         tabBarIcon: ({ focused, color, size }) => {
           const [filled, outline] = tabIcons[route.name];
-          return <Ionicons name={focused ? filled : outline} color={color} size={size + 1} />;
+          return (
+            <Ionicons
+              name={focused ? filled : outline}
+              color={color}
+              size={size + 1}
+            />
+          );
         },
       })}
     >
@@ -66,7 +77,11 @@ function MainTabs() {
 function LoadingScreen() {
   return (
     <View style={styles.loading}>
-      <Image source={require('../../assets/mathlens-mark.png')} style={styles.loadingLogo} contentFit="contain" />
+      <Image
+        source={require('../../assets/mathlens-mark.png')}
+        style={styles.loadingLogo}
+        contentFit="contain"
+      />
       <AppText variant="headline">Preparing your workspace</AppText>
       <ActivityIndicator color={C.primary} />
     </View>
@@ -75,7 +90,32 @@ function LoadingScreen() {
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
+  const [onboardingDone, setOnboardingDone] = useState(null);
+
+  useEffect(() => {
+  AsyncStorage.removeItem(ONBOARDING_KEY)
+    .then(() => setOnboardingDone(false))
+    .catch(() => setOnboardingDone(false));
+}, []);
+
+  async function finishOnboarding() {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    } catch (error) {
+      console.warn('Could not save onboarding status:', error);
+    }
+
+    setOnboardingDone(true);
+  }
+
+  if (loading || onboardingDone === null) {
+    return <LoadingScreen />;
+  }
+
+  // Show onboarding before the login screen on first launch.
+  if (!onboardingDone) {
+    return <OnboardingScreen onDone={finishOnboarding} />;
+  }
 
   return (
     <Stack.Navigator
@@ -89,13 +129,29 @@ export default function RootNavigator() {
     >
       {!user ? (
         <>
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create account' }} />
-          <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} options={{ title: 'Verify email' }} />
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Register"
+            component={RegisterScreen}
+            options={{ title: 'Create account' }}
+          />
+          <Stack.Screen
+            name="VerifyOtp"
+            component={VerifyOtpScreen}
+            options={{ title: 'Verify email' }}
+          />
         </>
       ) : (
         <>
-          <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen
             name="Result"
             component={ResultScreen}

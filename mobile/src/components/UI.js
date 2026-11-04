@@ -43,19 +43,27 @@ export function ScrollScreen({ children, contentContainerStyle, ...props }) {
   );
 }
 
+
 export function AuthScreen({ children }) {
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.authSafe}>
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={styles.authSafe}
+    >
       <ScrollView
         contentContainerStyle={styles.authContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        alwaysBounceVertical={false}
       >
         {children}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 
 export function AppText({ variant = 'body', color = 'ink', style, selectable, children, ...props }) {
   return (
@@ -296,15 +304,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  authContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    width: '100%',
-    maxWidth: 520,
-    alignSelf: 'center',
-    padding: spacing.xl,
-    gap: spacing.xl,
-  },
+  
+authContent: {
+  flexGrow: 1,
+  justifyContent: 'center',
+  width: '100%',
+  maxWidth: 520,
+  alignSelf: 'center',
+  paddingHorizontal: spacing.lg,
+  paddingVertical: spacing.md,
+  gap: spacing.lg,
+},
+
   brand: {
     flexDirection: 'row',
     alignItems: 'center',

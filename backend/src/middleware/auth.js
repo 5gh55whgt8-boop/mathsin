@@ -5,7 +5,7 @@ import { env } from '../config/env.js';
 export async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = (header.startsWith('Bearer ') ? header.slice(7) : null) || req.query?.token;
     if (!token) return res.status(401).json({ error: 'Authentication required' });
     const payload = jwt.verify(token, env.jwtSecret);
     const user = await User.findById(payload.sub).select('-passwordHash');
