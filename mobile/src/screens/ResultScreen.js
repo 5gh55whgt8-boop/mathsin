@@ -28,6 +28,7 @@ import {
   ScrollScreen,
   SectionHeader,
 } from '../components/UI';
+import RichText from '../components/RichText';
 import { C, motion, radius, shadows, spacing, type } from '../theme';
 
 const contentTabs = [
@@ -415,7 +416,7 @@ export default function ResultScreen({ route }) {
                   style={styles.copyAiButton}
                 />
               </View>
-              <AppText color="#E7EDFA" selectable style={styles.aiText}>{ai}</AppText>
+              <RichText color="#E7EDFA" style={styles.aiText}>{ai}</RichText>
             </Card>
           </Animated.View>
         ) : null}

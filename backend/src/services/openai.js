@@ -273,8 +273,15 @@ Source filename: ${JSON.stringify(originalName)}.`,
         similar: 'Create 3 similar practice questions with answers separately.'
       };
       if (!tasks[action]) throw ocrError('Unsupported AI action', 'AI_ACTION', 400);
+      const formattingRules = String.raw`Use the exact mathematical symbols from the source whenever possible:
+∑ ∫ √ ∞ ≤ ≥ ≠ ≈ ± × ÷ − → ⇔ ∈ ∉ ⊂ ∩ ∪ ∀ ∃ α β γ δ ε θ λ μ π.
+Do not replace them with ASCII spellings such as SUM, INT, sqrt, <=, >=, !=, or ->.
+Format the response as readable Markdown: use **bold** for key results, *italics* for emphasis,
+headings and numbered lists where helpful. Keep equations on their own lines and preserve
+subscripts, superscripts, fractions, matrices, brackets, and absolute-value bars exactly.
+Never use Markdown markers inside an equation.`;
       // Study tools return prose, never the OCR extraction schema.
-      const response = await generate({ prompt: `${tasks[action]}\nSource content:\n${content || question || ''}`, signal: controller.signal });
+      const response = await generate({ prompt: `${tasks[action]}\n${formattingRules}\nSource content:\n${content || question || ''}`, signal: controller.signal });
       return { text: response.text, model: response.model, provider: response.provider, responseId: response.rawId };
     })
   };
