@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -87,8 +87,9 @@ export default function ScanScreen({ navigation }) {
           return;
         }
         result = await ImagePicker.launchCameraAsync({
-          quality: 0.25,
+          quality: 0.85,
           exif: false,
+          allowsEditing: false,
           mediaTypes: ['images'],
         });
       } else {
@@ -301,10 +302,14 @@ export default function ScanScreen({ navigation }) {
       if (Platform.OS === 'web') {
         await appendWebFile(formData, asset);
       } else {
+        const fileName = asset.fileName || asset.name || 'camera-scan.jpg';
+        const mimeType = asset.mimeType?.startsWith('image/')
+          ? asset.mimeType
+          : /\.(png)$/i.test(fileName) ? 'image/png' : 'image/jpeg';
         formData.append('file', {
           uri: asset.uri,
-          name: asset.fileName || asset.name || 'scan',
-          type: asset.mimeType || 'application/octet-stream',
+          name: fileName,
+          type: mimeType,
         });
       }
 
@@ -437,6 +442,19 @@ export default function ScanScreen({ navigation }) {
           </View>
         )}
       </View>
+      {busy && !asset ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLabel="Creating PDF"
+          style={styles.pdfLoadingOverlay}
+        >
+          <Card style={styles.pdfLoadingCard}>
+            <ActivityIndicator size="large" color={C.primary} />
+            <AppText variant="headline">Creating your PDF</AppText>
+            <Muted>Combining your images. This may take a moment.</Muted>
+          </Card>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -448,6 +466,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
+  },
+  pdfLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(244, 247, 251, 0.88)',
+    zIndex: 10,
+  },
+  pdfLoadingCard: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
   },
   heading: {
     gap: spacing.xxs,

@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import mammoth from 'mammoth';
 import { scanFile, scanImage, scanText } from '../services/openai.js';
+import { detectImageMimeType } from '../services/imageFormat.js';
 
 const uploadDir = path.resolve('uploads');
 const scanStorageDir = path.resolve('storage/scans');
@@ -50,14 +51,14 @@ async function persistOriginal(req, sourceType) {
   return storedFile;
 }
 
-async function saveResult(req, result, sourceType) {
+async function saveResult(req, result, sourceType, mimeType = req.file?.mimetype) {
   const p = result.parsed || {};
   const storedFile = await persistOriginal(req, sourceType);
   const scan = await Scan.create({
     user: req.user._id,
     title: p.title || req.file.originalname || 'Untitled scan',
     sourceType,
-    mimeType: req.file.mimetype,
+    mimeType,
     originalName: req.file.originalname,
     storedFile,
     plainText: p.plainText || '',
@@ -130,10 +131,10 @@ router.post('/local', async (req, res, next) => {
 router.post('/image', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
-    const mimeType = imageMimeType(req.file);
-    if (!mimeType) return res.status(415).json({ error: 'JPEG, PNG, WEBP, GIF, BMP or HEIC image required' });
+    const mimeType = await detectImageMimeType(req.file.path, imageMimeType(req.file), req.file.originalname);
+    if (!mimeType) return res.status(415).json({ error: 'A readable JPEG, PNG, WEBP, GIF or BMP image is required' });
     const result = await scanImage(req.file.path, mimeType);
-    res.status(201).json({ scan: await saveResult(req, result, 'image') });
+    res.status(201).json({ scan: await saveResult(req, result, 'image', mimeType) });
   } catch (e) { next(e); }
   finally { fs.unlink(req.file.path).catch(() => {}); }
 });
