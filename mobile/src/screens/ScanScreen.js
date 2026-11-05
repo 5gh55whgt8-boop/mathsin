@@ -65,8 +65,6 @@ const sources = [
     badge: 'UTILITY',
   },
 ];
-const sourceRows = [sources.slice(0, 2), sources.slice(2, 4), sources.slice(4, 5)];
-
 const documentMimeByExtension = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -378,38 +376,30 @@ export default function ScanScreen({ navigation, route }) {
 
         {!asset ? (
           <View style={styles.sourceGrid}>
-            {sourceRows.map((row, rowIndex) => (
-              <View key={`source-row-${rowIndex}`} style={styles.sourceRow}>
-                {row.map(source => (
-                  <PressableScale
-                    key={source.key}
-                    accessibilityLabel={source.title}
-                    disabled={busy}
-                    onPress={() => chooseSource(source.key)}
-                    style={styles.sourceItem}
-                  >
-                    <Card style={[styles.sourceCard, compact && styles.sourceCardCompact]}>
-                      <View style={styles.sourceCardTop}>
-                        <FeatureIcon name={source.icon} tone={source.tone} size={compact ? 36 : 40} />
-                        {source.badge && (
-                          <Badge
-                            label={source.badge}
-                            tone={source.tone === 'primary' ? 'primary' : 'neutral'}
-                          />
-                        )}
-                      </View>
-                      <View style={styles.sourceCardBody}>
-                        <AppText variant="headline" numberOfLines={1}>{source.title}</AppText>
-                        <Muted numberOfLines={2} style={styles.tileDescription}>{source.description}</Muted>
-                      </View>
-                      <View style={styles.tileFooter}>
-                        <AppText variant="caption" color="primary">Select</AppText>
-                        <Ionicons name="arrow-forward" size={14} color={C.primary} />
-                      </View>
-                    </Card>
-                  </PressableScale>
-                ))}
-              </View>
+            {sources.map(source => (
+              <PressableScale
+                key={source.key}
+                accessibilityLabel={`${source.title}. ${source.description}`}
+                disabled={busy}
+                onPress={() => chooseSource(source.key)}
+                style={styles.sourceItem}
+              >
+                <Card style={[styles.sourceCard, compact && styles.sourceCardCompact]}>
+                  <FeatureIcon name={source.icon} tone={source.tone} size={compact ? 40 : 46} />
+                  <View style={styles.sourceCardBody}>
+                    <AppText variant="headline" numberOfLines={2}>{source.title}</AppText>
+                    {source.badge && (
+                      <Badge
+                        label={source.badge}
+                        tone={source.tone === 'primary' ? 'primary' : 'neutral'}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.tileFooter}>
+                    <Ionicons name="arrow-forward" size={17} color={C.primary} />
+                  </View>
+                </Card>
+              </PressableScale>
             ))}
           </View>
         ) : (
@@ -524,42 +514,31 @@ const styles = StyleSheet.create({
   sourceGrid: {
     gap: spacing.sm,
   },
-  sourceRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
   sourceItem: {
-    flex: 1,
+    width: '100%',
   },
   sourceCard: {
-    minHeight: 148,
-    justifyContent: 'space-between',
+    minHeight: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: spacing.md,
     gap: spacing.xs,
   },
   sourceCardCompact: {
     padding: spacing.sm,
-    minHeight: 136,
-  },
-  sourceCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    minHeight: 76,
   },
   sourceCardBody: {
-    gap: 2,
-  },
-  tileDescription: {
-    fontSize: 12,
-    lineHeight: 16,
+    flex: 1,
+    gap: spacing.xxs,
   },
   tileFooter: {
-    marginTop: 'auto',
-    width: '100%',
-    flexDirection: 'row',
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    backgroundColor: C.primarySoft,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 4,
+    justifyContent: 'center',
   },
   selectionSection: {
     flex: 1,

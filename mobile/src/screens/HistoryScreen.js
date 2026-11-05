@@ -1,5 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
@@ -14,7 +21,7 @@ import {
   PressableScale,
   Screen,
 } from '../components/UI';
-import { C, layout, spacing } from '../theme';
+import { C, layout, radius, spacing } from '../theme';
 
 function formatDate(value) {
   if (!value) return 'Recent';
@@ -26,35 +33,99 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
-function ScanRow({ item, onPress }) {
+function LibraryCard({ item, onOpen }) {
+  const [expanded, setExpanded] = useState(false);
   const isLocal = item.provider === 'mlkit' || item.ocrSource === 'mlkit' || item.recognitionMode === 'local';
   const typeLabel = isLocal ? 'Fast OCR' : item.sourceType === 'image' ? 'Equation' : item.sourceType === 'pdf' ? 'PDF' : 'Document';
-  const preview = item.plainText || item.markdown || item.latex || 'Open to view recognized content.';
+  const textContent = (item.latex || item.plainText || item.markdown || '').trim();
+  const preview = textContent || 'No mathematical expression text recorded.';
+
+  // Check if content is long enough to warrant an expand/collapse toggle (> 120 chars or multiple lines)
+  const isExpandable = textContent.length > 120 || (textContent.match(/\n/g) || []).length >= 2;
 
   return (
-    <PressableScale accessibilityLabel={`Open ${item.title}`} onPress={onPress}>
-      <Card style={styles.rowCard}>
-        <View style={styles.rowTop}>
-          <FeatureIcon
-            name={item.sourceType === 'image' ? 'calculator-outline' : 'document-text-outline'}
-            tone="primary"
-            size={42}
-          />
-          <View style={styles.rowCopy}>
-            <AppText variant="headline" numberOfLines={1}>{item.title || 'Untitled equation scan'}</AppText>
-            <Muted numberOfLines={2} style={styles.rowPreviewText}>{preview}</Muted>
+    <Card style={styles.card}>
+      {/* Top Header Row */}
+      <View style={styles.cardHeader}>
+        <FeatureIcon
+          name={item.sourceType === 'image' ? 'calculator-outline' : 'document-text-outline'}
+          tone="primary"
+          size={40}
+        />
+        <View style={styles.cardHeaderCopy}>
+          <AppText variant="headline" numberOfLines={1}>
+            {item.title || 'Untitled equation scan'}
+          </AppText>
+          <View style={styles.metaRow}>
+            <Badge label={typeLabel} tone={isLocal ? 'neutral' : 'primary'} />
+            {item.questions?.length > 0 && (
+              <Badge label={`${item.questions.length} Qs`} tone="neutral" icon="help-circle-outline" />
+            )}
+            <AppText variant="caption" color="muted" style={styles.date}>
+              {formatDate(item.createdAt)}
+            </AppText>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={C.subtle} />
         </View>
-        <View style={styles.rowMeta}>
-          <Badge label={typeLabel} tone={isLocal ? 'neutral' : 'primary'} />
-          {item.questions?.length > 0 && (
-            <Badge label={`${item.questions.length} Qs`} tone="neutral" icon="help-circle-outline" />
-          )}
-          <AppText variant="caption" color="muted" style={styles.date}>{formatDate(item.createdAt)}</AppText>
-        </View>
-      </Card>
-    </PressableScale>
+        <PressableScale
+          accessibilityLabel={`Open ${item.title || 'scan'}`}
+          onPress={onOpen}
+          style={styles.openIconButton}
+        >
+          <Ionicons name="arrow-forward" size={16} color={C.primary} />
+        </PressableScale>
+      </View>
+
+      {/* Snippet Container of Specific Size with Collapsible State */}
+      <PressableScale
+        accessibilityLabel={`View ${item.title || 'scan'}`}
+        onPress={onOpen}
+        style={[
+          styles.snippetBox,
+          expanded ? styles.snippetBoxExpanded : styles.snippetBoxCollapsed,
+        ]}
+      >
+        <AppText
+          numberOfLines={expanded ? undefined : 3}
+          style={[styles.snippetText, item.latex ? styles.monospaceText : null]}
+          selectable={expanded}
+        >
+          {preview}
+        </AppText>
+      </PressableScale>
+
+      {/* Card Footer with Expand/Collapse & Workspace Navigation */}
+      <View style={styles.cardFooter}>
+        {isExpandable ? (
+          <PressableScale
+            accessibilityLabel={expanded ? 'Collapse content' : 'Show full content'}
+            onPress={() => setExpanded(prev => !prev)}
+            style={styles.expandToggle}
+          >
+            <AppText variant="caption" color="primary" style={styles.expandToggleText}>
+              {expanded ? 'Collapse' : 'Show full content'}
+            </AppText>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={C.primary}
+            />
+          </PressableScale>
+        ) : (
+          <View style={styles.emptySpacer} />
+        )}
+
+        <PressableScale
+          accessibilityLabel={`Open ${item.title || 'scan'} in workspace`}
+          onPress={onOpen}
+          style={styles.workspaceLink}
+        >
+          <AppText variant="caption" color="inkSoft" style={styles.workspaceLinkText}>
+            Open in Workspace
+          </AppText>
+          <Ionicons name="arrow-forward" size={13} color={C.primary} />
+        </PressableScale>
+      </View>
+    </Card>
   );
 }
 
@@ -143,7 +214,10 @@ export default function HistoryScreen({ navigation }) {
           />
         )}
         renderItem={({ item }) => (
-          <ScanRow item={item} onPress={() => navigation.navigate('Result', { scan: item })} />
+          <LibraryCard
+            item={item}
+            onOpen={() => navigation.navigate('Result', { scan: item })}
+          />
         )}
       />
     </Screen>
@@ -168,35 +242,98 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   separator: {
-    height: spacing.xs,
+    height: spacing.sm,
   },
-  rowCard: {
+  card: {
     gap: spacing.sm,
     padding: spacing.md,
   },
-  rowTop: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  rowCopy: {
+  cardHeaderCopy: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
-  rowPreviewText: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  rowMeta: {
+  metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingTop: spacing.xxs,
   },
   date: {
     marginLeft: 'auto',
     fontSize: 11,
+  },
+  openIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    backgroundColor: C.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snippetBox: {
+    borderRadius: radius.sm,
+    backgroundColor: C.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  snippetBoxCollapsed: {
+    minHeight: 68,
+    maxHeight: 76,
+    justifyContent: 'center',
+  },
+  snippetBoxExpanded: {
+    minHeight: 68,
+    paddingVertical: spacing.sm,
+  },
+  snippetText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: C.ink,
+  },
+  monospaceText: {
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+  },
+  emptySpacer: {
+    flex: 1,
+  },
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    backgroundColor: C.primarySoft,
+  },
+  expandToggleText: {
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  workspaceLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  workspaceLinkText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   loader: {
     minHeight: 280,

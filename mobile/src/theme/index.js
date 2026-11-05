@@ -120,7 +120,7 @@ export const type = {
   },
 };
 
-// Robust cross-platform shadow definitions for iOS & Android
+// Native shadow definitions avoid CSS box-shadow parsing errors in React Native.
 export const shadows = {
   card: Platform.select({
     ios: {
@@ -133,7 +133,11 @@ export const shadows = {
       elevation: 2,
     },
     default: {
-      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.05)',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
   }),
   raised: Platform.select({
@@ -147,7 +151,11 @@ export const shadows = {
       elevation: 4,
     },
     default: {
-      boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+      elevation: 4,
     },
   }),
   button: Platform.select({
@@ -161,7 +169,11 @@ export const shadows = {
       elevation: 3,
     },
     default: {
-      boxShadow: '0 3px 8px rgba(37, 99, 235, 0.22)',
+      shadowColor: '#2563EB',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.22,
+      shadowRadius: 8,
+      elevation: 3,
     },
   }),
 };

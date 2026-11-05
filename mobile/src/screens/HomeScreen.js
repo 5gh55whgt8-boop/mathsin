@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
@@ -97,37 +99,64 @@ export default function HomeScreen({ navigation }) {
       <ScrollScreen contentContainerStyle={styles.content}>
         {/* Editorial Math Workspace Hero */}
         <Animated.View entering={FadeInDown.duration(motion.base).reduceMotion(ReduceMotion.System)}>
-          <Card tone="dark" style={styles.heroCard}>
+          <LinearGradient
+            colors={['#FFFFFF', '#F3F7FF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
             <View style={styles.heroTop}>
-              <Badge label="MATHEMATICS WORKSPACE" tone="primary" icon="sparkles" />
-              <Muted color="subtle">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Muted>
+              <View style={styles.heroEyebrow}>
+                <View style={styles.heroEyebrowDot} />
+                <AppText variant="caption" color="primary">MATH WORKSPACE</AppText>
+              </View>
+              <AppText variant="caption" color="muted">
+                {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </AppText>
             </View>
             <View style={styles.heroMain}>
-              <AppText variant="display" color="white" style={styles.heroTitle}>
-                {greeting()}, {firstName}
-              </AppText>
-              <AppText color="#CBD5E1" style={styles.heroSubtitle}>
-                Scan equations, recognize formulas, and generate complete step-by-step mathematical solutions.
-              </AppText>
+              <View style={styles.heroCopy}>
+                <AppText variant="display" style={styles.heroTitle}>
+                  {greeting()}, {firstName}
+                </AppText>
+                <AppText color="inkSecondary" style={styles.heroSubtitle}>
+                  Snap a problem and make math easier to understand.
+                </AppText>
+              </View>
+              <View style={styles.heroArtwork} accessibilityLabel="MathLens math workspace illustration">
+                <View style={styles.heroOrbit} />
+                <Image
+                  source={require('../../assets/mathlens-mark.png')}
+                  style={styles.heroLogo}
+                  contentFit="contain"
+                />
+                <View style={[styles.mathChip, styles.mathChipTop]}>
+                  <AppText variant="headline" color="primary">∑ x²</AppText>
+                </View>
+                <View style={[styles.mathChip, styles.mathChipBottom]}>
+                  <AppText variant="caption" color="ink">x = 4</AppText>
+                </View>
+              </View>
             </View>
-            <View style={styles.heroCtaRow}>
+            <View style={styles.heroFooter}>
               <Button
-                title="Scan equation or document"
+                title="Start a scan"
                 icon="camera-outline"
                 variant="primary"
                 size="lg"
                 onPress={() => navigation.navigate('Scan')}
                 style={styles.heroScanBtn}
               />
+              <View style={styles.heroTrust}>
+                <Ionicons name="sparkles-outline" size={16} color={C.primary} />
+                <AppText variant="caption" color="muted">OCR + step-by-step solving</AppText>
+              </View>
             </View>
-          </Card>
+          </LinearGradient>
         </Animated.View>
 
         {/* Quick Capture Options */}
-        <SectionHeader
-          title="Input sources"
-          subtitle="Select input method to digitize math."
-        />
+        <SectionHeader title="Start with a scan" subtitle="Choose the fastest way in." />
         <View style={styles.sourceGrid}>
           <PressableScale
             accessibilityLabel="Scan with Camera"
@@ -135,10 +164,13 @@ export default function HomeScreen({ navigation }) {
             style={styles.sourceItem}
           >
             <Card style={styles.sourceCard}>
-              <FeatureIcon name="camera-outline" tone="primary" size={40} />
+              <View style={styles.sourceVisual}>
+                <FeatureIcon name="camera-outline" tone="primary" size={46} />
+                <View style={styles.visualDot} />
+              </View>
               <View style={styles.sourceCopy}>
                 <AppText variant="headline">Camera scan</AppText>
-                <Muted style={styles.sourceSub}>Handwritten or printed</Muted>
+                <Muted style={styles.sourceSub}>Capture math</Muted>
               </View>
               <Ionicons name="arrow-forward" size={16} color={C.primary} style={styles.sourceArrow} />
             </Card>
@@ -150,10 +182,13 @@ export default function HomeScreen({ navigation }) {
             style={styles.sourceItem}
           >
             <Card style={styles.sourceCard}>
-              <FeatureIcon name="document-text-outline" tone="navy" size={40} />
+              <View style={[styles.sourceVisual, styles.documentVisual]}>
+                <FeatureIcon name="document-text-outline" tone="navy" size={46} />
+                <Ionicons name="add" size={14} color={C.navy} style={styles.documentPlus} />
+              </View>
               <View style={styles.sourceCopy}>
                 <AppText variant="headline">Document</AppText>
-                <Muted style={styles.sourceSub}>PDF, DOCX, TXT</Muted>
+                <Muted style={styles.sourceSub}>Import a file</Muted>
               </View>
               <Ionicons name="arrow-forward" size={16} color={C.primary} style={styles.sourceArrow} />
             </Card>
@@ -161,22 +196,19 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* Core Mathematical Capabilities */}
-        <SectionHeader
-          title="Mathematical capabilities"
-          subtitle="Equipped for academic & technical productivity."
-        />
+        <SectionHeader title="Your math toolkit" subtitle="Everything you need to understand the answer." />
         <View style={styles.featureGrid}>
           {[
-            ['calculator-outline', 'Step-by-step solver', 'Complete algebraic & calculus breakdowns'],
-            ['code-slash-outline', 'LaTeX & Markdown', 'Export clean math notation instantly'],
-            ['checkmark-done-outline', 'Solution check', 'Verify answers with detailed corrections'],
-            ['cloud-done-outline', 'Workspace sync', 'All scans securely saved to your account'],
-          ].map(([icon, title, desc]) => (
-            <Card key={title} style={styles.featureCard}>
-              <FeatureIcon name={icon} tone="primary" size={38} />
+            { icon: 'calculator-outline', title: 'Solve', tone: 'primary' },
+            { icon: 'bulb-outline', title: 'Explain', tone: 'primary' },
+            { icon: 'checkmark-done-outline', title: 'Check', tone: 'primary' },
+            { icon: 'cloud-done-outline', title: 'Sync', tone: 'primary' },
+          ].map(feature => (
+            <Card key={feature.title} style={styles.featureCard}>
+              <FeatureIcon name={feature.icon} tone={feature.tone} size={38} />
               <View style={styles.featureCopy}>
-                <AppText variant="headline">{title}</AppText>
-                <Muted style={styles.featureDesc}>{desc}</Muted>
+                <AppText variant="headline">{feature.title}</AppText>
+                <Ionicons name="arrow-forward" size={15} color={C.primary} />
               </View>
             </Card>
           ))}
@@ -249,29 +281,94 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#D9E6FF',
+    overflow: 'hidden',
+    ...shadows.card,
   },
   heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  heroEyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  heroEyebrowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: C.primary,
+  },
   heroMain: {
+    minHeight: 150,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  heroCopy: {
+    flex: 1,
     gap: spacing.xs,
   },
   heroTitle: {
-    color: C.white,
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 25,
+    lineHeight: 31,
   },
   heroSubtitle: {
     fontSize: 13,
     lineHeight: 19,
   },
-  heroCtaRow: {
-    paddingTop: spacing.xs,
+  heroArtwork: {
+    width: 126,
+    height: 136,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroOrbit: {
+    position: 'absolute',
+    width: 124,
+    height: 124,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: 'rgba(239, 246, 255, 0.85)',
+  },
+  heroLogo: {
+    width: 88,
+    height: 88,
+  },
+  mathChip: {
+    position: 'absolute',
+    minWidth: 54,
+    padding: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: C.white,
+    ...shadows.card,
+    alignItems: 'center',
+  },
+  mathChipTop: {
+    top: 3,
+    right: -2,
+    transform: [{ rotate: '8deg' }],
+  },
+  mathChipBottom: {
+    bottom: 5,
+    left: -3,
+    transform: [{ rotate: '-7deg' }],
+  },
+  heroFooter: {
+    gap: spacing.sm,
   },
   heroScanBtn: {
     width: '100%',
+  },
+  heroTrust: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   sourceGrid: {
     flexDirection: 'row',
@@ -281,10 +378,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sourceCard: {
-    minHeight: 124,
+    minHeight: 142,
     justifyContent: 'space-between',
     padding: spacing.md,
     gap: spacing.xs,
+  },
+  sourceVisual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  documentVisual: {
+    position: 'relative',
+  },
+  visualDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: C.primary,
+    marginRight: spacing.xs,
+  },
+  documentPlus: {
+    position: 'absolute',
+    right: spacing.xs,
+    bottom: spacing.xs,
   },
   sourceCopy: {
     gap: 2,
@@ -296,21 +413,23 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   featureCard: {
-    flexDirection: 'row',
+    width: '48%',
+    minHeight: 92,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
     padding: spacing.md,
   },
   featureCopy: {
     flex: 1,
-    gap: 2,
-  },
-  featureDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+    alignItems: 'flex-end',
+    gap: spacing.xs,
   },
   recentList: {
     gap: spacing.sm,
