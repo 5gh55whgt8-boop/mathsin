@@ -50,6 +50,22 @@ function cleanName(value = 'scan') {
   return String(value).replace(/[^a-z0-9._-]+/gi, '_').slice(0, 80) || 'scan';
 }
 
+function bytesToBase64(bytes) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const data = new Uint8Array(bytes);
+  let output = '';
+  for (let i = 0; i < data.length; i += 3) {
+    const a = data[i];
+    const b = i + 1 < data.length ? data[i + 1] : 0;
+    const c = i + 2 < data.length ? data[i + 2] : 0;
+    output += alphabet[a >> 2];
+    output += alphabet[((a & 3) << 4) | (b >> 4)];
+    output += i + 1 < data.length ? alphabet[((b & 15) << 2) | (c >> 6)] : '=';
+    output += i + 2 < data.length ? alphabet[c & 63] : '=';
+  }
+  return output;
+}
+
 export default function ResultScreen({ route }) {
   const [scan, setScan] = useState(route.params.scan || {});
   const [tab, setTab] = useState('plainText');
@@ -132,7 +148,7 @@ export default function ResultScreen({ route }) {
     }
   }
 
-  async function exportFile(format) {
+  async function exportFile(format, solution = '') {
     if (!scan._id) {
       Alert.alert(
         'Scan not synchronized',
@@ -141,11 +157,14 @@ export default function ResultScreen({ route }) {
       return;
     }
     try {
-      setExporting(format);
+      setExporting(solution ? `solution-${format}` : format);
       const ext = format === 'docx' ? 'docx' : 'pdf';
-      const name = `${cleanName(scan.title)}.${ext}`;
+      const name = `${cleanName(scan.title)}${solution ? '-solution' : ''}.${ext}`;
+      const endpoint = `/exports/${scan._id}/${format}`;
       if (Platform.OS === 'web') {
-        const { data } = await api.get(`/exports/${scan._id}/${format}`, { responseType: 'blob' });
+        const { data } = solution
+          ? await api.post(endpoint, { solution }, { responseType: 'blob' })
+          : await api.get(endpoint, { responseType: 'blob' });
         const url = URL.createObjectURL(data);
         const anchor = document.createElement('a');
         anchor.href = url;
@@ -157,11 +176,22 @@ export default function ResultScreen({ route }) {
       } else {
         const token = await AsyncStorage.getItem('token');
         const destination = FileSystem.cacheDirectory + name;
-        const output = await FileSystem.downloadAsync(
-          `${API_BASE_URL}/exports/${scan._id}/${format}`,
+        let output;
+        if (solution) {
+          const response = await api.post(endpoint, { solution }, { responseType: 'arraybuffer' });
+          await FileSystem.writeAsStringAsync(
+            destination,
+            bytesToBase64(response.data),
+            { encoding: 'base64' },
+          );
+          output = { status: response.status, uri: destination };
+        } else {
+          output = await FileSystem.downloadAsync(
+          `${API_BASE_URL}${endpoint}`,
           destination,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-        );
+          );
+        }
         if (output.status < 200 || output.status >= 300) throw new Error(`Download failed (${output.status})`);
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(output.uri, {
@@ -337,7 +367,7 @@ export default function ResultScreen({ route }) {
         <View style={styles.section}>
           <SectionHeader
             title="Export files"
-            subtitle="Download shareable academic documents with formulas preserved."
+            subtitle="Download shareable documents with readable plain text."
           />
           <View style={styles.exportGrid}>
             <PressableScale
@@ -354,7 +384,7 @@ export default function ResultScreen({ route }) {
                 )}
                 <View style={styles.flexCopy}>
                   <AppText variant="headline">PDF Document</AppText>
-                  <Muted style={styles.exportDesc}>Print-ready LaTeX rendered PDF</Muted>
+                  <Muted style={styles.exportDesc}>Print-ready plain-text PDF</Muted>
                 </View>
                 <Ionicons name="download-outline" size={20} color={C.primary} />
               </Card>
@@ -374,7 +404,7 @@ export default function ResultScreen({ route }) {
                 )}
                 <View style={styles.flexCopy}>
                   <AppText variant="headline">Word Document</AppText>
-                  <Muted style={styles.exportDesc}>Editable DOCX with equations</Muted>
+                  <Muted style={styles.exportDesc}>Editable DOCX with plain text</Muted>
                 </View>
                 <Ionicons name="download-outline" size={20} color={C.primary} />
               </Card>
@@ -445,6 +475,26 @@ export default function ResultScreen({ route }) {
               </View>
               <View style={styles.aiResultBody}>
                 <RichText color={C.ink} style={styles.aiText}>{ai}</RichText>
+              </View>
+              <View style={styles.solutionExports}>
+                <Button
+                  title="PDF solution"
+                  icon="document-text-outline"
+                  variant="ghost"
+                  size="sm"
+                  loading={exporting === 'solution-pdf'}
+                  disabled={Boolean(exporting)}
+                  onPress={() => exportFile('pdf', ai)}
+                />
+                <Button
+                  title="Word solution"
+                  icon="document-outline"
+                  variant="ghost"
+                  size="sm"
+                  loading={exporting === 'solution-docx'}
+                  disabled={Boolean(exporting)}
+                  onPress={() => exportFile('docx', ai)}
+                />
               </View>
             </Card>
           </Animated.View>
@@ -631,6 +681,11 @@ const styles = StyleSheet.create({
   },
   aiResultBody: {
     paddingVertical: spacing.xs,
+  },
+  solutionExports: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   aiText: {
     lineHeight: 24,

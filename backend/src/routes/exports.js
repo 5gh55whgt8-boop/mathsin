@@ -15,7 +15,20 @@ const imageUpload = multer({
 });
 const esc = s => String(s || '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const filename = s => String(s || 'scan').replace(/[^a-z0-9._-]+/gi,'_').slice(0,80);
-const recognized = scan => scan.plainText || scan.markdown || scan.latex || '';
+function readableQuestions(scan) {
+  if (!Array.isArray(scan.questions) || !scan.questions.length) return '';
+  return scan.questions.map((question, index) => {
+    const number = question.number || index + 1;
+    const lines = [`Question ${number}`, String(question.question || '').trim()];
+    const options = Array.isArray(question.options) ? question.options : [];
+    options.forEach((option, optionIndex) => {
+      const label = String.fromCharCode(65 + optionIndex);
+      const text = typeof option === 'string' ? option : option.text || option.label || '';
+      if (text) lines.push(`(${label}) ${text}`);
+    });
+    return lines.filter(Boolean).join('\n');
+  }).join('\n\n');
+}
 const pdfText = value => String(value || '');
 const unicodeFont = [
   process.env.PDF_FONT_PATH,
@@ -29,6 +42,21 @@ const cleanRichText = value => String(value || '')
   .replace(/(?<=\S)(\*\*|__|\*|_)/g, '')
   .replace(/^\s*#{1,6}\s+/gm, '')
   .replace(/^\s*[-*]\s+/gm, '• ');
+const exportPlainText = value => cleanRichText(value)
+  .replace(/\$\$?([^$]+)\$\$?/g, '$1')
+  .replace(/\\(?:left|right|text|mathrm|mathbf|mathbb|mathcal)\b/g, '')
+  .replace(/\\([a-zA-Z]+)/g, '$1')
+  .replace(/[{}]/g, '')
+  .replace(/\s+\n/g, '\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+const recognized = scan => exportPlainText(readableQuestions(scan) || scan.plainText || '');
+function solutionText(value) {
+  return cleanRichText(value)
+    .replace(/\$\$?([^$]+)\$\$?/g, '$1')
+    .replace(/\\([a-zA-Z]+)/g, '$1')
+    .trim();
+}
 function docxRuns(value) {
   const pattern = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|`[^`\n]+`)/g;
   return String(value || '').split(pattern).filter(Boolean).map(part => {
@@ -89,11 +117,10 @@ router.get('/:scanId/:format', async (req, res, next) => {
       doc.fontSize(21).text(pdfText(scan.title || 'AI Scan'));
       doc.fillColor('#000').moveDown();
       doc.fontSize(14).text('AI extracted text');
-      doc.moveDown(0.5).fontSize(11).text(cleanRichText(recognized(scan) || 'No recognized content.'), { lineGap: 3 });
-      if (scan.latex) {
-        doc.moveDown().fontSize(14).text('LaTeX');
-        doc.moveDown(0.5).fontSize(10).text(scan.latex, { lineGap: 2 });
-      }
+      doc.moveDown(0.5).fontSize(11).text(
+        recognized(scan) || 'No recognized content.',
+        { lineGap: 3 },
+      );
       doc.end();
       return;
     }
@@ -101,19 +128,53 @@ router.get('/:scanId/:format', async (req, res, next) => {
       const children = [
         new Paragraph({ text: scan.title || 'AI Scan', heading: HeadingLevel.TITLE }),
       ];
-      children.push(new Paragraph({ text: 'AI extracted text', heading: HeadingLevel.HEADING_1 }));
+      children.push(new Paragraph({
+        text: 'AI extracted text',
+        heading: HeadingLevel.HEADING_1,
+      }));
       for (const line of String(recognized(scan) || 'No recognized content.').split(/\n/)) {
         children.push(new Paragraph({ children: docxRuns(line || ' ') }));
-      }
-      if (scan.latex) {
-        children.push(new Paragraph({ text: 'LaTeX', heading: HeadingLevel.HEADING_1 }));
-        for (const line of String(scan.latex).split(/\n/)) children.push(new Paragraph({ children: [new TextRun({ text: line || ' ', font: 'Cambria Math' })] }));
       }
       const doc = new Document({ sections: [{ children }] });
       const buffer = await Packer.toBuffer(doc);
       return res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document').attachment(`${base}.docx`).send(buffer);
     }
     return res.status(400).json({ error: 'Supported: json, txt, md, tex, html, pdf, docx' });
+  } catch (e) { next(e); }
+});
+
+router.post('/:scanId/:format', async (req, res, next) => {
+  try {
+    const scan = await Scan.findOne({ _id: req.params.scanId, user: req.user._id });
+    if (!scan) return res.status(404).json({ error: 'Scan not found' });
+    const format = req.params.format.toLowerCase();
+    if (!['pdf', 'docx'].includes(format)) return res.status(400).json({ error: 'Solution export supports PDF and DOCX.' });
+    const solution = solutionText(req.body?.solution);
+    if (!solution) return res.status(400).json({ error: 'Generate a solution before exporting it.' });
+    const base = `${filename(scan.title)}-solution`;
+
+    if (format === 'pdf') {
+      res.type('application/pdf').attachment(`${base}.pdf`);
+      const doc = new PDFDocument({ margin: 50, autoFirstPage: true });
+      doc.pipe(res);
+      if (unicodeFont) doc.font(unicodeFont);
+      doc.fontSize(21).text(scan.title || 'MathLens solution');
+      doc.moveDown().fontSize(14).text('Step-by-step solution');
+      doc.moveDown(0.5).fontSize(11).text(solution, { lineGap: 3 });
+      doc.end();
+      return;
+    }
+
+    const children = [
+      new Paragraph({ text: scan.title || 'MathLens solution', heading: HeadingLevel.TITLE }),
+      new Paragraph({ text: 'Step-by-step solution', heading: HeadingLevel.HEADING_1 }),
+      ...solution.split(/\n/).map(line => new Paragraph({ children: docxRuns(line || ' ') })),
+    ];
+    const doc = new Document({ sections: [{ children }] });
+    const buffer = await Packer.toBuffer(doc);
+    return res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      .attachment(`${base}.docx`)
+      .send(buffer);
   } catch (e) { next(e); }
 });
 export default router;
