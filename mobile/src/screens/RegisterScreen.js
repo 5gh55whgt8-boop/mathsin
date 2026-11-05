@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { AppText, Brand, Button, Card, Input, Muted, Screen, ScrollScreen } from '../components/UI';
+import { AppText, Badge, Brand, Button, Card, Input, Muted, Screen, ScrollScreen } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
-import { C, shadows, spacing } from '../theme';
+import { spacing } from '../theme';
 
 export default function RegisterScreen({ navigation }) {
   const { register } = useAuth();
@@ -10,7 +10,7 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const passwordError = password && password.length < 8 ? 'Use at least 8 characters.' : '';
+  const passwordError = password && password.length < 8 ? 'Password must be at least 8 characters.' : '';
 
   async function go() {
     try {
@@ -29,17 +29,19 @@ export default function RegisterScreen({ navigation }) {
   return (
     <Screen>
       <ScrollScreen contentContainerStyle={styles.content}>
-        <Brand />
-        <View style={styles.heading}>
-          <AppText variant="title">Build your math library</AppText>
-          <Muted>Every scan, solution and export stays connected to your account.</Muted>
+        <View style={styles.headerBlock}>
+          <Brand />
+          <View style={styles.heading}>
+            <AppText variant="title">Create your workspace</AppText>
+            <Muted>Every recognized equation, solution, and PDF export is preserved in your library.</Muted>
+          </View>
         </View>
 
         <Card style={styles.formCard}>
           <Input
             label="Full name"
             icon="person-outline"
-            placeholder="Your name"
+            placeholder="Dr. Jane Doe"
             autoComplete="name"
             value={name}
             onChangeText={setName}
@@ -47,7 +49,7 @@ export default function RegisterScreen({ navigation }) {
           <Input
             label="Email address"
             icon="mail-outline"
-            placeholder="you@example.com"
+            placeholder="name@university.edu"
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -57,7 +59,7 @@ export default function RegisterScreen({ navigation }) {
           <Input
             label="Password"
             icon="shield-checkmark-outline"
-            placeholder="Minimum 8 characters"
+            placeholder="At least 8 characters"
             secureTextEntry
             autoComplete="new-password"
             value={password}
@@ -67,19 +69,21 @@ export default function RegisterScreen({ navigation }) {
             returnKeyType="go"
           />
           <Button
-            title="Create my workspace"
+            title="Create workspace account"
             icon="sparkles-outline"
+            variant="primary"
+            size="lg"
             loading={busy}
             disabled={!valid}
             haptic
             onPress={go}
+            style={styles.submitBtn}
           />
         </Card>
 
         <View style={styles.assurance}>
-          <AppText variant="caption" color="good">✓ SECURE ACCOUNT</AppText>
-          <View style={styles.dot} />
-          <AppText variant="caption" color="primary">✓ INSTANT CLOUD SYNC</AppText>
+          <Badge label="ENCRYPTED AUTHENTICATION" tone="neutral" icon="lock-closed" />
+          <Badge label="INSTANT CLOUD SYNC" tone="primary" icon="cloud-done" />
         </View>
       </ScrollScreen>
     </Screen>
@@ -89,13 +93,20 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   content: {
     justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  headerBlock: {
+    gap: spacing.md,
   },
   heading: {
-    gap: spacing.xs,
+    gap: spacing.xxs,
   },
   formCard: {
     gap: spacing.md,
-    boxShadow: shadows.raised,
+    padding: spacing.lg,
+  },
+  submitBtn: {
+    marginTop: spacing.xs,
   },
   assurance: {
     flexDirection: 'row',
@@ -103,11 +114,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 99,
-    backgroundColor: C.borderStrong,
   },
 });

@@ -139,23 +139,53 @@ router.post('/image', upload.single('file'), async (req, res, next) => {
   finally { fs.unlink(req.file.path).catch(() => {}); }
 });
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+// Phones often label documents as application/octet-stream (Drive, WhatsApp, file
+// managers) or with the wrong type, so identify the file from its bytes and name.
+async function detectDocumentType(file) {
+  let head = Buffer.alloc(0);
+  try {
+    const handle = await fs.open(file.path, 'r');
+    try {
+      const buffer = Buffer.alloc(8);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+      head = buffer.subarray(0, bytesRead);
+    } finally { await handle.close(); }
+  } catch { /* fall through to name/mime checks */ }
+  if (head.toString('latin1', 0, 5) === '%PDF-') return 'pdf';
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const mime = String(file.mimetype || '').toLowerCase();
+  if (head.length >= 4 && head[0] === 0x50 && head[1] === 0x4b && (ext === '.docx' || mime === DOCX_MIME)) return 'docx';
+  if (ext === '.pdf' && mime === 'application/pdf') return 'pdf';
+  if (ext === '.txt' || mime === 'text/plain') return 'txt';
+  return '';
+}
+
 router.post('/document', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   try {
-    const allowed = new Set(['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain']);
-    if (!allowed.has(req.file.mimetype)) return res.status(415).json({ error: 'PDF, DOCX or TXT required' });
+    const kind = await detectDocumentType(req.file);
+    if (!kind) return res.status(415).json({ error: 'PDF, DOCX or TXT required' });
     let result;
-    if (req.file.mimetype === 'application/pdf') {
-      result = await scanFile(req.file.path, req.file.mimetype, req.file.originalname);
-    } else if (req.file.mimetype === 'text/plain') {
+    if (kind === 'pdf') {
+      result = await scanFile(req.file.path, 'application/pdf', req.file.originalname);
+    } else if (kind === 'txt') {
       const text = await fs.readFile(req.file.path, 'utf8');
       result = await scanText(text, req.file.originalname);
     } else {
       const extracted = await mammoth.extractRawText({ path: req.file.path });
       result = await scanText(extracted.value, req.file.originalname);
     }
-    res.status(201).json({ scan: await saveResult(req, result, req.file.mimetype === 'application/pdf' ? 'pdf' : 'document') });
-  } catch (e) { next(e); }
+    const mimeType = kind === 'pdf' ? 'application/pdf' : kind === 'docx' ? DOCX_MIME : 'text/plain';
+    res.status(201).json({ scan: await saveResult(req, result, kind === 'pdf' ? 'pdf' : 'document', mimeType) });
+  } catch (e) {
+    // A corrupt .docx is the user's file problem, not a server fault.
+    if (/zip|central directory|end of data|docx/i.test(e?.message || '') && !e.code) {
+      e.status = 422; e.message = 'This document could not be read. Re-save it as DOCX or PDF and try again.';
+    }
+    next(e);
+  }
   finally { fs.unlink(req.file.path).catch(() => {}); }
 });
 

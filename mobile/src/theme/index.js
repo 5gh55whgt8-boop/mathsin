@@ -1,36 +1,54 @@
+import { Platform } from 'react-native';
+
 export const C = {
-  bg: '#F4F7FB',
+  // Backgrounds & Surfaces
+  bg: '#F8FAFC',
   surface: '#FFFFFF',
+  surfaceSecondary: '#F1F5F9',
   card: '#FFFFFF',
-  ink: '#0B1736',
-  inkSoft: '#263654',
-  muted: '#66728A',
-  subtle: '#8D98AD',
-  primary: '#4937F2',
-  primaryDark: '#2D24B8',
-  primarySoft: '#EEECFF',
-  soft: '#EEECFF',
-  accent: '#2DD4BF',
-  accentSoft: '#DDFBF6',
-  navy: '#071534',
-  navySoft: '#102557',
-  border: '#E3E8F2',
-  borderStrong: '#CED6E5',
-  good: '#0F9F75',
-  goodSoft: '#DDF8EF',
+
+  // Primary Royal Blue Brand
+  primary: '#2563EB',
+  primaryDark: '#1D4ED8',
+  primaryLight: '#DBEAFE',
+  primarySoft: '#EFF6FF',
+  soft: '#EFF6FF',
+
+  // Secondary & Accents (Cohesive Royal Blue / Deep Slate)
+  accent: '#2563EB',
+  accentSoft: '#EFF6FF',
+  navy: '#0B132B',
+  navySoft: '#1E293B',
+
+  // Typography Colors
+  ink: '#0F172A',
+  inkSoft: '#334155',
+  muted: '#64748B',
+  subtle: '#94A3B8',
+
+  // Borders
+  border: '#E2E8F0',
+  borderStrong: '#CBD5E1',
+
+  // Semantic Status Colors
+  good: '#16A34A',
+  goodSoft: '#DCFCE7',
   warning: '#D97706',
-  warningSoft: '#FFF3D6',
-  danger: '#D83A52',
-  dangerSoft: '#FDE8EC',
+  warningSoft: '#FEF3C7',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
+
+  // Utilities
   white: '#FFFFFF',
-  overlay: 'rgba(7, 21, 52, 0.55)',
+  overlay: 'rgba(15, 23, 42, 0.65)',
 };
 
+// Editorial, non-pastel gradients with restrained contrast
 export const gradients = {
-  hero: ['#071534', '#172A67', '#4937F2'],
-  primary: ['#4937F2', '#6959FF'],
-  fresh: ['#4937F2', '#246BFD', '#2DD4BF'],
-  soft: ['#F0EEFF', '#EAFBFA'],
+  hero: ['#0B132B', '#1E293B', '#1E3A8A'],
+  primary: ['#2563EB', '#1D4ED8'],
+  fresh: ['#1E40AF', '#2563EB', '#3B82F6'],
+  soft: ['#F8FAFC', '#EFF6FF'],
 };
 
 export const spacing = {
@@ -44,39 +62,117 @@ export const spacing = {
   huge: 48,
 };
 
+// Moderate, professional radii (no oversized bubble shapes)
 export const radius = {
-  sm: 10,
-  md: 14,
-  lg: 20,
-  xl: 28,
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
   full: 999,
 };
 
 export const type = {
-  display: { fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -1.1 },
-  title: { fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.6 },
-  section: { fontSize: 19, lineHeight: 25, fontWeight: '700', letterSpacing: -0.2 },
-  headline: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
-  body: { fontSize: 15, lineHeight: 22, fontWeight: '400' },
-  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
-  subhead: { fontSize: 13, lineHeight: 18, fontWeight: '500' },
-  caption: { fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.25 },
+  display: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  title: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  section: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  headline: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+  },
+  bodyStrong: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  subhead: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  caption: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
 };
 
+// Robust cross-platform shadow definitions for iOS & Android
 export const shadows = {
-  card: '0 8px 24px rgba(25, 39, 79, 0.07)',
-  raised: '0 14px 36px rgba(17, 31, 70, 0.13)',
-  button: '0 8px 18px rgba(73, 55, 242, 0.24)',
+  card: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {
+      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.05)',
+    },
+  }),
+  raised: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+    },
+    android: {
+      elevation: 4,
+    },
+    default: {
+      boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+    },
+  }),
+  button: Platform.select({
+    ios: {
+      shadowColor: '#2563EB',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.22,
+      shadowRadius: 8,
+    },
+    android: {
+      elevation: 3,
+    },
+    default: {
+      boxShadow: '0 3px 8px rgba(37, 99, 235, 0.22)',
+    },
+  }),
 };
 
 export const motion = {
-  fast: 140,
-  base: 240,
-  slow: 380,
+  fast: 120,
+  base: 200,
+  slow: 320,
 };
 
 export const layout = {
-  screenPadding: spacing.lg,
+  screenPadding: spacing.md,
   maxContent: 760,
   touchTarget: 48,
 };

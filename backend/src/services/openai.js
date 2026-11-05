@@ -141,10 +141,21 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
           providerStatus: response.status
         });
       }
-      if ([400, 401, 403].includes(response.status)) {
-        const cooldownMs = response.status === 400 ? 60 * 60 * 1000 : 15 * 60 * 1000;
-        unavailableUntil.set(candidateId, Date.now() + cooldownMs);
-        if ([401, 403].includes(response.status)) markKeyUnavailable(candidate.key, cooldownMs);
+      if ([400, 401, 403, 404].includes(response.status)) {
+        // A 400 is usually specific to THIS request (an unreadable page, an oversized
+        // payload). Cooling the key/model down for it would make one bad document
+        // break every following scan for an hour. Only cool down when the key itself
+        // is rejected (Gemini reports a bad key as HTTP 400 / API_KEY_INVALID).
+        const badKey = [401, 403].includes(response.status)
+          || details.some(detail => detail.reason === 'API_KEY_INVALID')
+          || /api key/i.test(payload?.error?.message || '');
+        if (badKey) {
+          const cooldownMs = 15 * 60 * 1000;
+          unavailableUntil.set(candidateId, Date.now() + cooldownMs);
+          markKeyUnavailable(candidate.key, cooldownMs);
+        } else if (response.status === 404) {
+          unavailableUntil.set(candidateId, Date.now() + 15 * 60 * 1000); // model not found
+        }
       }
       throw ocrError('The scanner service is unavailable. Please try again later.', 'OCR_PROVIDER_UNAVAILABLE', 503, {
         providerStatus: response.status
@@ -203,7 +214,7 @@ export function createAiService({ config = env, fetchImpl = globalThis.fetch, cl
         'OCR_INVALID_RESPONSE', 'OCR_COVERAGE', 'OCR_TRUNCATED', 'OCR_EMPTY'
       ].includes(error.code) || (
         error.code === 'OCR_PROVIDER_UNAVAILABLE' &&
-        [502, 503, 504].includes(error.providerStatus)
+        [408, 500, 502, 503, 504].includes(error.providerStatus)
       );
       if (!canUsePlainFallback) throw error;
 
@@ -258,11 +269,38 @@ Source filename: ${JSON.stringify(originalName)}.`,
       return mergePageResults(results, originalName);
     }),
     scanText: (text, originalName = 'document.txt') => withinDeadline(async controller => {
-      const response = await generate({
-        prompt: `${transcriptionRules}\nThis source is text only. Preserve supplied mathematical notation, never reconstruct missing symbols by guessing.\nFilename: ${JSON.stringify(originalName)}\nSource data: ${JSON.stringify(text)}`,
-        schema: ocrSchema, validate: validateTranscript, signal: controller.signal
-      });
-      return { ...response, parsed: formatTranscript(response.parsed) };
+      const source = String(text || '').trim();
+      if (!source) throw ocrError('No readable text was found in this document.', 'OCR_EMPTY', 422);
+      const basePrompt = `${transcriptionRules}\nThis source is text only. Preserve supplied mathematical notation, never reconstruct missing symbols by guessing.\nFilename: ${JSON.stringify(originalName)}\nSource data: ${JSON.stringify(source)}`;
+      const recoverable = ['OCR_INVALID_RESPONSE', 'OCR_COVERAGE', 'OCR_TRUNCATED', 'OCR_EMPTY'];
+      try {
+        let response;
+        try {
+          response = await generate({ prompt: basePrompt, schema: ocrSchema, validate: validateTranscript, signal: controller.signal });
+        } catch (error) {
+          if (!recoverable.includes(error.code)) throw error;
+          response = await generate({
+            prompt: `${basePrompt}\nPrevious attempt failed validation: ${error.message}\nReturn ALL items with valid JSON escaping.`,
+            schema: ocrSchema, validate: validateTranscript, signal: controller.signal
+          });
+        }
+        return { ...response, parsed: formatTranscript(response.parsed) };
+      } catch (error) {
+        // The document is already digital text, so it can be returned losslessly when
+        // structured extraction fails (very long files, unnumbered questions, etc.).
+        const providerHiccup = error.code === 'OCR_PROVIDER_UNAVAILABLE' && [408, 500, 502, 503, 504].includes(error.providerStatus);
+        if (!recoverable.includes(error.code) && !providerHiccup) throw error;
+        console.warn(`[ai] scanText structured extraction failed (${error.code}); returning the document text as-is.`);
+        return {
+          parsed: {
+            title: originalName || 'Document',
+            plainText: source, markdown: source, latex: '', questions: [],
+            blocks: [{ type: 'text', text: source, latex: '', markdown: source }],
+            warnings: ['Structured question detection was unavailable, so the document text is shown as extracted.']
+          },
+          rawId: [], model: 'text-extraction', provider: 'local'
+        };
+      }
     }),
     aiAction: ({ action, content, question, answer }) => withinDeadline(async controller => {
       const tasks = {

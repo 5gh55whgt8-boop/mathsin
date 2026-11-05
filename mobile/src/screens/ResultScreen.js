@@ -193,25 +193,29 @@ export default function ResultScreen({ route }) {
 
   return (
     <Screen>
-      <ScrollScreen>
+      <ScrollScreen contentContainerStyle={styles.scrollContent}>
+        {/* Result Header */}
         <View style={styles.resultHeading}>
           <View style={styles.headingBadges}>
             <Badge
               label={(scan.sourceType || 'scan').toUpperCase()}
-              tone={scan.local ? 'good' : 'primary'}
+              tone={scan.local ? 'neutral' : 'primary'}
               icon={scan.local ? 'phone-portrait-outline' : 'scan-outline'}
             />
+            <Badge {...saveBadge} />
           </View>
           <AppText variant="title" selectable>{scan.title || 'Scan result'}</AppText>
-          <Muted selectable>Recognized and ready to edit.</Muted>
+          <Muted selectable>Recognized mathematical expression and document content.</Muted>
+
           {!scan._id ? (
             <Card tone="warning" style={styles.syncCard}>
               <View style={styles.flexCopy}>
-                <AppText variant="bodyStrong" color="warning">Not synchronized</AppText>
-                <Muted>This scan is still available on this device. Synchronize it before exporting.</Muted>
+                <AppText variant="bodyStrong" color="warning">Local Scan (Unsynced)</AppText>
+                <Muted>This scan is stored locally. Synchronize it to enable cloud exports and cross-device access.</Muted>
               </View>
               <Button
                 title={syncing ? 'Syncing…' : 'Sync now'}
+                variant="primary"
                 size="sm"
                 onPress={retrySync}
                 disabled={syncing}
@@ -222,18 +226,36 @@ export default function ResultScreen({ route }) {
 
         {scan.warnings?.length > 0 ? (
           <Card tone="warning" style={styles.warningCard}>
-            <FeatureIcon name="warning-outline" tone="warning" size={42} />
+            <FeatureIcon name="alert-circle-outline" tone="warning" size={38} />
             <View style={styles.flexCopy}>
-              <AppText variant="bodyStrong" color="warning">Review suggested</AppText>
+              <AppText variant="bodyStrong" color="warning">Notation Notice</AppText>
               <Muted selectable>{scan.warnings.join(' • ')}</Muted>
             </View>
           </Card>
         ) : null}
 
+        {/* Content Viewer / Editor */}
         <SectionHeader
-          title="Recognized content"
-          subtitle="Edit any OCR detail—changes save automatically."
-          action={<Badge {...saveBadge} />}
+          title="Recognized expression & content"
+          subtitle="Switch format or tap into text to edit. Changes save automatically."
+          action={
+            <View style={styles.contentActions}>
+              <Button
+                title="Copy"
+                icon="copy-outline"
+                variant="ghost"
+                size="sm"
+                onPress={() => copyText(scan[tab], contentTabs.find(([key]) => key === tab)?.[1])}
+              />
+              <Button
+                title="Share"
+                icon="share-outline"
+                variant="ghost"
+                size="sm"
+                onPress={() => Share.share({ message: scan[tab] || '' })}
+              />
+            </View>
+          }
         />
 
         <View style={styles.segmentedControl}>
@@ -257,23 +279,6 @@ export default function ResultScreen({ route }) {
           })}
         </View>
 
-        <View style={styles.contentToolbar}>
-          <Button
-            title="Copy"
-            icon="copy-outline"
-            variant="ghost"
-            size="sm"
-            onPress={() => copyText(scan[tab], contentTabs.find(([key]) => key === tab)?.[1])}
-          />
-          <Button
-            title="Share"
-            icon="share-outline"
-            variant="ghost"
-            size="sm"
-            onPress={() => Share.share({ message: scan[tab] || '' })}
-          />
-        </View>
-
         <Card style={styles.editorCard}>
           <TextInput
             accessibilityLabel={`Edit recognized ${contentTabs.find(([key]) => key === tab)?.[1]}`}
@@ -291,25 +296,32 @@ export default function ResultScreen({ route }) {
             placeholderTextColor={C.subtle}
             selectionColor={C.primary}
             textAlignVertical="top"
+            scrollEnabled={false}
             style={[styles.editor, tab !== 'plainText' && styles.monospace]}
           />
         </Card>
 
+        {/* Detected Questions */}
         {scan.questions?.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader
               title="Detected questions"
-              subtitle={`${scan.questions.length} ${scan.questions.length === 1 ? 'question' : 'questions'} found. Edit the transcript above to make corrections.`}
+              subtitle={`${scan.questions.length} ${scan.questions.length === 1 ? 'question' : 'questions'} identified.`}
             />
             <Card style={styles.questionList}>
               {scan.questions.map((question, index) => (
                 <View key={`${question.number || index}-${index}`}>
                   <View style={styles.questionRow}>
-                    <Badge label={String(question.number || index + 1)} tone="primary" />
+                    <Badge label={`#${question.number || index + 1}`} tone="primary" />
                     <View style={[styles.flexCopy, styles.questionContent]}>
-                      <AppText selectable>{question.question || question.latex || 'Question detected'}</AppText>
+                      <AppText selectable style={styles.questionText}>
+                        {question.question || question.latex || 'Question statement'}
+                      </AppText>
                       {Array.isArray(question.options) && question.options.map((option, optionIndex) => (
-                        <AppText key={optionIndex} selectable>{String(option)}</AppText>
+                        <View key={optionIndex} style={styles.optionRow}>
+                          <AppText variant="caption" color="muted">{String.fromCharCode(65 + optionIndex)}.</AppText>
+                          <AppText selectable style={styles.optionText}>{String(option)}</AppText>
+                        </View>
                       ))}
                     </View>
                   </View>
@@ -320,10 +332,11 @@ export default function ResultScreen({ route }) {
           </View>
         ) : null}
 
+        {/* Professional Export */}
         <View style={styles.section}>
           <SectionHeader
-            title="Professional export"
-            subtitle="Create a clean, share-ready file from recognized content."
+            title="Export files"
+            subtitle="Download shareable academic documents with formulas preserved."
           />
           <View style={styles.exportGrid}>
             <PressableScale
@@ -333,14 +346,19 @@ export default function ResultScreen({ route }) {
               style={styles.exportItem}
             >
               <Card style={styles.exportCard}>
-                {exporting === 'pdf' ? <ActivityIndicator color={C.danger} /> : <FeatureIcon name="document-text" tone="warning" size={50} />}
+                {exporting === 'pdf' ? (
+                  <ActivityIndicator color={C.primary} />
+                ) : (
+                  <FeatureIcon name="document-text-outline" tone="primary" size={44} />
+                )}
                 <View style={styles.flexCopy}>
-                  <AppText variant="headline">PDF document</AppText>
-                  <Muted>Portable and print-ready</Muted>
+                  <AppText variant="headline">PDF Document</AppText>
+                  <Muted style={styles.exportDesc}>Print-ready LaTeX rendered PDF</Muted>
                 </View>
-                <FeatureIcon name="download-outline" size={34} />
+                <Ionicons name="download-outline" size={20} color={C.primary} />
               </Card>
             </PressableScale>
+
             <PressableScale
               accessibilityLabel="Export Word"
               disabled={Boolean(exporting)}
@@ -348,26 +366,31 @@ export default function ResultScreen({ route }) {
               style={styles.exportItem}
             >
               <Card style={styles.exportCard}>
-                {exporting === 'docx' ? <ActivityIndicator color={C.primary} /> : <FeatureIcon name="document" size={50} />}
+                {exporting === 'docx' ? (
+                  <ActivityIndicator color={C.primary} />
+                ) : (
+                  <FeatureIcon name="document-outline" tone="navy" size={44} />
+                )}
                 <View style={styles.flexCopy}>
-                  <AppText variant="headline">Word document</AppText>
-                  <Muted>Editable DOCX format</Muted>
+                  <AppText variant="headline">Word Document</AppText>
+                  <Muted style={styles.exportDesc}>Editable DOCX with equations</Muted>
                 </View>
-                <FeatureIcon name="download-outline" size={34} />
+                <Ionicons name="download-outline" size={20} color={C.primary} />
               </Card>
             </PressableScale>
           </View>
         </View>
 
+        {/* AI Mathematical Analysis & Solving */}
         <View style={styles.section}>
           <SectionHeader
-            title="AI study tools"
-            subtitle="Solve any recognized problem or turn it into practice."
+            title="AI mathematical analysis"
+            subtitle="Solve, explain, simplify or practice the recognized math."
           />
           <Input
-            label="Your answer (only needed for Answer Check)"
+            label="Your student answer (optional — for Answer Verification)"
             icon="create-outline"
-            placeholder="Example: x = 4 or 27.5"
+            placeholder="e.g. x = 4 or y = 3x + 2"
             value={answer}
             onChangeText={setAnswer}
           />
@@ -381,42 +404,47 @@ export default function ResultScreen({ route }) {
                 style={styles.aiItem}
               >
                 <Card style={styles.aiCard}>
-                  {busyAction === action ? (
-                    <View style={styles.aiLoader}>
-                      <ActivityIndicator color={C.primary} />
-                    </View>
-                  ) : (
-                    <FeatureIcon name={icon} tone={action === 'solve' || action === 'check' ? 'accent' : 'primary'} size={46} />
-                  )}
+                  <View style={styles.aiCardTop}>
+                    {busyAction === action ? (
+                      <View style={styles.aiLoader}>
+                        <ActivityIndicator color={C.primary} size="small" />
+                      </View>
+                    ) : (
+                      <FeatureIcon name={icon} tone="primary" size={40} />
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={C.subtle} />
+                  </View>
                   <AppText variant="headline">{title}</AppText>
-                  <Muted>{description}</Muted>
+                  <Muted style={styles.aiCardDesc}>{description}</Muted>
                 </Card>
               </PressableScale>
             ))}
           </View>
         </View>
 
+        {/* AI Solution / Answer Result */}
         {ai ? (
           <Animated.View entering={FadeInDown.duration(motion.base).reduceMotion(ReduceMotion.System)}>
-            <Card tone="dark" style={styles.aiResult}>
+            <Card style={styles.aiResultCard}>
               <View style={styles.aiResultTop}>
                 <View style={styles.aiResultTitle}>
-                  <FeatureIcon name="sparkles" tone="accent" size={42} />
+                  <FeatureIcon name="sparkles" tone="primary" size={38} />
                   <View>
-                    <AppText variant="section" color="white">MathLens answer</AppText>
-                    <AppText variant="caption" color="#AFC0E2">AI-GENERATED • REVIEW IMPORTANT WORK</AppText>
+                    <AppText variant="section">MathLens Solution</AppText>
+                    <AppText variant="caption" color="primary">STEP-BY-STEP MATHEMATICAL PROOF</AppText>
                   </View>
                 </View>
                 <Button
-                  title="Copy"
+                  title="Copy solution"
                   icon="copy-outline"
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  onPress={() => copyText(ai, 'Answer')}
-                  style={styles.copyAiButton}
+                  onPress={() => copyText(ai, 'Solution')}
                 />
               </View>
-              <RichText color="#E7EDFA" style={styles.aiText}>{ai}</RichText>
+              <View style={styles.aiResultBody}>
+                <RichText color={C.ink} style={styles.aiText}>{ai}</RichText>
+              </View>
             </Card>
           </Animated.View>
         ) : null}
@@ -426,72 +454,82 @@ export default function ResultScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.huge,
+    gap: spacing.lg,
+  },
   resultHeading: {
     gap: spacing.xs,
   },
   headingBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  warningCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   syncCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    padding: spacing.md,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   flexCopy: {
     flex: 1,
+    gap: 2,
+  },
+  contentActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   segmentedControl: {
     flexDirection: 'row',
-    padding: spacing.xxs,
-    gap: spacing.xxs,
+    padding: 3,
+    gap: 4,
     borderRadius: radius.md,
-    borderCurve: 'continuous',
-    backgroundColor: '#E8ECF3',
+    backgroundColor: C.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   segment: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
     borderRadius: radius.sm,
-    borderCurve: 'continuous',
   },
   segmentActive: {
-    backgroundColor: C.white,
-    boxShadow: '0 2px 8px rgba(18, 30, 65, 0.10)',
-  },
-  contentToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...shadows.card,
   },
   editorCard: {
-    padding: 0,
-    overflow: 'hidden',
-    boxShadow: shadows.raised,
+    padding: spacing.md,
   },
   editor: {
-    minHeight: 300,
-    padding: spacing.lg,
+    minHeight: 180,
     color: C.ink,
-    ...type.body,
+    fontSize: 14,
+    lineHeight: 22,
   },
   monospace: {
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontSize: 13,
+    lineHeight: 20,
   },
   section: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   questionList: {
     gap: spacing.md,
+    padding: spacing.md,
   },
   questionRow: {
     flexDirection: 'row',
@@ -501,22 +539,42 @@ const styles = StyleSheet.create({
   questionContent: {
     gap: spacing.xs,
   },
+  questionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.ink,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 13,
+    color: C.inkSecondary,
+  },
   divider: {
     height: 1,
     marginTop: spacing.md,
     backgroundColor: C.border,
   },
   exportGrid: {
+    flexDirection: 'row',
     gap: spacing.sm,
   },
   exportItem: {
-    width: '100%',
+    flex: 1,
   },
   exportCard: {
-    minHeight: 92,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    padding: spacing.md,
+    minHeight: 76,
+  },
+  exportDesc: {
+    fontSize: 12,
   },
   aiGrid: {
     flexDirection: 'row',
@@ -529,24 +587,41 @@ const styles = StyleSheet.create({
     minWidth: 150,
   },
   aiCard: {
-    minHeight: 176,
-    gap: spacing.sm,
+    minHeight: 144,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  aiCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   aiLoader: {
-    width: 46,
-    height: 46,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  aiResult: {
-    gap: spacing.lg,
-    boxShadow: shadows.raised,
+  aiCardDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  aiResultCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: C.primaryLight,
+    backgroundColor: C.surface,
   },
   aiResultTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   aiResultTitle: {
     flex: 1,
@@ -554,9 +629,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  copyAiButton: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderColor: 'rgba(255,255,255,0.18)',
+  aiResultBody: {
+    paddingVertical: spacing.xs,
   },
   aiText: {
     lineHeight: 24,

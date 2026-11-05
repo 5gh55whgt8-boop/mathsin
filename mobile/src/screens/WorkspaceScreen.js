@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api/client';
 import {
@@ -14,20 +13,20 @@ import {
   ScrollScreen,
   SectionHeader,
 } from '../components/UI';
-import { C, gradients, radius, shadows, spacing } from '../theme';
+import { C, radius, spacing } from '../theme';
 
 const statDefinitions = [
-  ['scans', 'Total scans', 'scan-outline', 'primary'],
-  ['favorites', 'Favorites', 'star-outline', 'warning'],
-  ['questions', 'Questions found', 'help-circle-outline', 'accent'],
-  ['aiActions', 'AI actions', 'sparkles-outline', 'primary'],
+  ['scans', 'Total Scans', 'scan-outline', 'primary'],
+  ['favorites', 'Starred Formulas', 'star-outline', 'warning'],
+  ['questions', 'Problems Identified', 'help-circle-outline', 'primary'],
+  ['aiActions', 'AI Solves & Steps', 'sparkles-outline', 'primary'],
 ];
 
 export default function WorkspaceScreen() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
   const { width } = useWindowDimensions();
-  const twoColumns = width >= 360;
+  const twoColumns = width >= 340;
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +34,7 @@ export default function WorkspaceScreen() {
       const response = await api.get('/workspace/stats');
       setStats(response.data);
     } catch (loadError) {
-      setError(loadError.response?.data?.error || 'Could not refresh workspace insights.');
+      setError(loadError.response?.data?.error || 'Could not refresh workspace metrics.');
     }
   }, []);
 
@@ -44,39 +43,43 @@ export default function WorkspaceScreen() {
   }, [load]));
 
   const valueFor = key => key === 'aiActions' ? stats?.usage?.aiActions || 0 : stats?.[key] || 0;
-  const plan = stats?.plan || 'free';
+  const plan = stats?.plan || 'Standard';
 
   return (
     <Screen>
-      <ScrollScreen>
+      <ScrollScreen contentContainerStyle={styles.scrollContent}>
         <View style={styles.heading}>
-          <AppText variant="title">Workspace overview</AppText>
-          <Muted>Everything you scan, organize and solve—at a glance.</Muted>
+          <AppText variant="title">Workspace Analytics</AppText>
+          <Muted>Overview of your mathematical database, operations, and account sync.</Muted>
         </View>
 
-        <LinearGradient colors={gradients.hero} style={styles.planCard}>
+        {/* Executive Plan Card */}
+        <Card tone="dark" style={styles.planCard}>
           <View style={styles.planTop}>
-            <Badge label={`${plan.toUpperCase()} PLAN`} tone="good" icon="diamond-outline" />
-            <FeatureIcon name="cloud-done" tone="accent" size={44} />
+            <Badge label={`${plan.toUpperCase()} WORKSPACE`} tone="primary" icon="diamond-outline" />
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <AppText variant="caption" color="white">CLOUD SYNC ACTIVE</AppText>
+            </View>
           </View>
-          <View style={styles.planCopy}>
-            <AppText variant="title" color="white">Your learning cloud</AppText>
-            <AppText color="#CBD7EF">
-              Scans and edits are synced securely across your MathLens workspace.
+          <View style={styles.planBody}>
+            <AppText variant="title" color="white">Mathematical Repository</AppText>
+            <AppText color="#94A3B8" style={styles.planDescription}>
+              All scans, equation transcriptions, LaTeX code, and step-by-step solutions are synchronized securely.
             </AppText>
           </View>
-          <View style={styles.syncStatus}>
-            <View style={styles.liveDot} />
-            <AppText variant="caption" color="#D8E4FA">SYNC ACTIVE</AppText>
-          </View>
-        </LinearGradient>
+        </Card>
 
-        <SectionHeader title="Workspace metrics" subtitle="Live totals from your account." />
+        {/* Workspace Metrics */}
+        <SectionHeader
+          title="Productivity metrics"
+          subtitle="Real-time counts from your connected account."
+        />
 
         {!stats && !error ? (
           <Card style={styles.loadingCard}>
-            <ActivityIndicator color={C.primary} />
-            <Muted>Refreshing metrics…</Muted>
+            <ActivityIndicator color={C.primary} size="small" />
+            <Muted>Aggregating workspace statistics…</Muted>
           </Card>
         ) : null}
 
@@ -91,36 +94,54 @@ export default function WorkspaceScreen() {
             {statDefinitions.map(([key, label, icon, tone], index) => (
               <AnimatedCard
                 key={key}
-                delay={index * 45}
+                delay={index * 40}
                 style={[styles.statWrap, twoColumns && styles.statWrapTwo]}
               >
-                <FeatureIcon name={icon} tone={tone} size={42} />
-                <AppText variant="display" style={styles.statNumber} selectable>
-                  {valueFor(key).toLocaleString()}
-                </AppText>
-                <Muted>{label}</Muted>
+                <View style={styles.statCardInner}>
+                  <View style={styles.statCardTop}>
+                    <FeatureIcon name={icon} tone={tone} size={38} />
+                    <Muted style={styles.statLabel}>{label}</Muted>
+                  </View>
+                  <AppText variant="display" style={styles.statNumber} selectable>
+                    {valueFor(key).toLocaleString()}
+                  </AppText>
+                </View>
               </AnimatedCard>
             ))}
           </View>
         ) : null}
 
-        <SectionHeader title="Workspace health" subtitle="Built for reliable study workflows." />
+        {/* System & Architecture Integrity */}
+        <SectionHeader
+          title="System integrity & security"
+          subtitle="Enterprise-grade privacy for academic research."
+        />
         <Card style={styles.healthCard}>
           <View style={styles.healthRow}>
-            <FeatureIcon name="shield-checkmark-outline" tone="accent" size={44} />
+            <FeatureIcon name="shield-checkmark-outline" tone="good" size={40} />
             <View style={styles.healthCopy}>
-              <AppText variant="bodyStrong">Account protected</AppText>
-              <Muted>Authenticated API access keeps scans private to your account.</Muted>
+              <AppText variant="headline">Authenticated API Protection</AppText>
+              <Muted style={styles.healthSub}>End-to-end token validation ensures private scan libraries.</Muted>
             </View>
-            <Badge label="Healthy" tone="good" />
+            <Badge label="Active" tone="good" />
           </View>
           <View style={styles.divider} />
           <View style={styles.healthRow}>
-            <FeatureIcon name="layers-outline" size={44} />
+            <FeatureIcon name="code-working-outline" tone="primary" size={40} />
             <View style={styles.healthCopy}>
-              <AppText variant="bodyStrong">Structured recognition</AppText>
-              <Muted>Text, equations, questions and warnings stay organized.</Muted>
+              <AppText variant="headline">Dual-Engine Recognition</AppText>
+              <Muted style={styles.healthSub}>High-speed local OCR + Gemini AI mathematical analysis.</Muted>
             </View>
+            <Badge label="Operational" tone="primary" />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.healthRow}>
+            <FeatureIcon name="cloud-done-outline" tone="neutral" size={40} />
+            <View style={styles.healthCopy}>
+              <AppText variant="headline">Export Infrastructure</AppText>
+              <Muted style={styles.healthSub}>On-demand compilation of PDF and DOCX documents.</Muted>
+            </View>
+            <Badge label="Ready" tone="neutral" />
           </View>
         </Card>
       </ScrollScreen>
@@ -129,40 +150,47 @@ export default function WorkspaceScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.huge,
+    gap: spacing.lg,
+  },
   heading: {
-    gap: spacing.xxs,
+    gap: 2,
   },
   planCard: {
-    borderRadius: radius.xl,
-    borderCurve: 'continuous',
-    padding: spacing.xl,
-    gap: spacing.xl,
-    boxShadow: shadows.raised,
+    padding: spacing.lg,
+    gap: spacing.md,
+    borderRadius: radius.lg,
   },
   planTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  planCopy: {
-    gap: spacing.xs,
-  },
-  syncStatus: {
+  liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
   },
   liveDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: radius.full,
-    backgroundColor: C.accent,
+    backgroundColor: C.good,
+  },
+  planBody: {
+    gap: spacing.xxs,
+  },
+  planDescription: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   loadingCard: {
-    minHeight: 120,
+    minHeight: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    padding: spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -176,12 +204,27 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 150,
   },
+  statCardInner: {
+    gap: spacing.sm,
+  },
+  statCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  statLabel: {
+    flex: 1,
+    fontSize: 12,
+  },
   statNumber: {
-    paddingTop: spacing.md,
+    fontSize: 30,
+    lineHeight: 34,
+    color: C.ink,
     fontVariant: ['tabular-nums'],
   },
   healthCard: {
     gap: spacing.md,
+    padding: spacing.md,
   },
   healthRow: {
     flexDirection: 'row',
@@ -190,6 +233,11 @@ const styles = StyleSheet.create({
   },
   healthCopy: {
     flex: 1,
+    gap: 2,
+  },
+  healthSub: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   divider: {
     height: 1,

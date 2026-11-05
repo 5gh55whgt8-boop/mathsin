@@ -35,7 +35,7 @@ app.use('/api/billing', billingRoutes);
 app.use((err, req, res, next) => {
   console.error(err);
   if (err?.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ error: 'This file is too large. Please choose a file smaller than 20 MB.' });
+    return res.status(413).json({ error: 'This file is too large. Please choose a file smaller than 20 MB and try again.' });
   }
   const status = err.status || 500;
   const message = status >= 500

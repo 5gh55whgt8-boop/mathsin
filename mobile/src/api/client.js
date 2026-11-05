@@ -25,7 +25,11 @@ api.interceptors.request.use(async config => {
 
 export function describeApiFailure(error, operation) {
   const status = error?.response?.status;
-  if (status === 413) return `${operation} failed because the file is too large. Choose an image smaller than 20 MB.`;
+  const serverMessage = typeof error?.response?.data?.error === 'string'
+    ? error.response.data.error.trim()
+    : '';
+  if (serverMessage && status >= 400 && status < 500) return serverMessage;
+  if (status === 413) return `${operation} could not continue because this file is too large. Please choose a file smaller than 20 MB.`;
   if (status === 408 || error?.code === 'ECONNABORTED') return `${operation} took too long. Please try a smaller image or try again.`;
   if (status === 404) {
     return operation.toLowerCase().includes('sync')
@@ -34,9 +38,10 @@ export function describeApiFailure(error, operation) {
         ? 'PDF creation is not available on the connected server. Update the app or redeploy the latest MathLens API, then try again.'
       : `${operation} failed because the requested item was not found.`;
   }
-  if (status === 401 || status === 403) return `${operation} failed: authentication is required`;
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 403) return `${operation} is not available for this account.`;
   if (status === 402) return `${operation} failed: the connected API still has the old scan limit enabled. Redeploy the latest backend and try again.`;
-  if (status === 400 || status === 422) return `${operation} failed: request data was rejected (${status})`;
+  if (status === 400 || status === 422) return `${operation} could not be completed. Please check the selected file and try again.`;
   if (status >= 500) {
     if (error?.response?.data?.code === 'OCR_PROVIDER_QUOTA') {
       return `${operation} failed because all configured Gemini keys are temporarily out of quota. Try again after the quota window resets.`;
@@ -44,10 +49,10 @@ export function describeApiFailure(error, operation) {
     if (error?.response?.data?.code === 'OCR_PROVIDER_UNAVAILABLE') {
       return `${operation} failed because all configured Gemini models or keys were unavailable. Verify the deployed Gemini configuration and try again.`;
     }
-    return `${operation} failed: backend returned ${status}`;
+    return `${operation} is temporarily unavailable. Please try again in a moment.`;
   }
   if (!error?.response) return `${operation} failed: backend is unreachable or the network is unavailable`;
-  return `${operation} failed: HTTP ${status}`;
+  return `${operation} could not be completed. Please try again.`;
 }
 
 const PENDING_LOCAL_SCANS_KEY = '@mathlens/pending-local-scans';

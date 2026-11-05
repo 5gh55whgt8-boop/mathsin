@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { navigationRef } from './navigationRef';
+import { recoverPendingCameraPhoto } from '../services/ocr/cameraRecovery';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import VerifyOtpScreen from '../screens/VerifyOtpScreen';
@@ -22,10 +25,10 @@ const Tabs = createBottomTabNavigator();
 
 const tabIcons = {
   Home: ['home', 'home-outline'],
-  Scan: ['scan-circle', 'scan-circle-outline'],
+  Scan: ['scan', 'scan-outline'],
   History: ['time', 'time-outline'],
   Workspace: ['grid', 'grid-outline'],
-  Profile: ['person-circle', 'person-circle-outline'],
+  Profile: ['person', 'person-outline'],
 };
 
 function HeaderBrand() {
@@ -33,6 +36,8 @@ function HeaderBrand() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -42,23 +47,28 @@ function MainTabs() {
         headerTitle: route.name === 'Home' ? () => <HeaderBrand /> : undefined,
         headerTitleAlign: 'left',
         tabBarActiveTintColor: C.primary,
-        tabBarInactiveTintColor: C.subtle,
+        tabBarInactiveTintColor: C.muted,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            minHeight: 62 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 6),
+          },
+        ],
         tabBarItemStyle: styles.tabBarItem,
-        tabBarActiveBackgroundColor: '#F0EEFF',
         tabBarHideOnKeyboard: true,
         tabBarIcon: ({ focused, color, size }) => {
-          const [filled, outline] = tabIcons[route.name];
-          return <Ionicons name={focused ? filled : outline} color={color} size={size + 1} />;
+          const [filled, outline] = tabIcons[route.name] || ['ellipse', 'ellipse-outline'];
+          return <Ionicons name={focused ? filled : outline} color={color} size={22} />;
         },
       })}
     >
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
-      <Tabs.Screen name="Scan" component={ScanScreen} options={{ title: 'New scan' }} />
-      <Tabs.Screen name="History" component={HistoryScreen} />
-      <Tabs.Screen name="Workspace" component={WorkspaceScreen} />
-      <Tabs.Screen name="Profile" component={ProfileScreen} />
+      <Tabs.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan' }} />
+      <Tabs.Screen name="History" component={HistoryScreen} options={{ title: 'Library' }} />
+      <Tabs.Screen name="Workspace" component={WorkspaceScreen} options={{ title: 'Workspace' }} />
+      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Tabs.Navigator>
   );
 }
@@ -67,14 +77,35 @@ function LoadingScreen() {
   return (
     <View style={styles.loading}>
       <Image source={require('../../assets/mathlens-mark.png')} style={styles.loadingLogo} contentFit="contain" />
-      <AppText variant="headline">Preparing your workspace</AppText>
-      <ActivityIndicator color={C.primary} />
+      <AppText variant="headline">Loading workspace…</AppText>
+      <ActivityIndicator color={C.primary} size="small" />
     </View>
   );
 }
 
+// If Android restarted the app while the camera was open, bring the photo back.
+function useRecoverCameraPhoto(enabled) {
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let cancelled = false;
+    (async () => {
+      const photo = await recoverPendingCameraPhoto();
+      if (!photo || cancelled) return;
+      for (let attempt = 0; attempt < 40 && !cancelled; attempt += 1) {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('Main', { screen: 'Scan', params: { recovered: photo } });
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+}
+
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  useRecoverCameraPhoto(Boolean(user) && !loading);
   if (loading) return <LoadingScreen />;
 
   return (
@@ -83,7 +114,7 @@ export default function RootNavigator() {
         headerShadowVisible: false,
         headerStyle: styles.header,
         headerTitleStyle: styles.headerTitle,
-        headerTintColor: C.ink,
+        headerTintColor: C.primary,
         contentStyle: { backgroundColor: C.bg },
       }}
     >
@@ -113,40 +144,39 @@ export default function RootNavigator() {
 const styles = StyleSheet.create({
   header: {
     backgroundColor: C.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   headerTitle: {
     color: C.ink,
+    fontSize: 17,
     fontWeight: '700',
   },
   tabBar: {
-    minHeight: 76,
-    paddingTop: 9,
-    paddingBottom: 9,
-    paddingHorizontal: 10,
     backgroundColor: C.surface,
     borderTopWidth: 1,
     borderTopColor: C.border,
-    boxShadow: shadows.raised,
+    paddingTop: 6,
+    paddingHorizontal: 8,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 3,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
   tabBarItem: {
-    borderRadius: 16,
-    marginHorizontal: 2,
+    paddingVertical: 2,
   },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     backgroundColor: C.bg,
   },
   loadingLogo: {
-    width: 92,
-    height: 92,
-    borderRadius: radius.xl,
+    width: 72,
+    height: 72,
+    borderRadius: radius.lg,
   },
 });

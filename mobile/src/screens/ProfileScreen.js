@@ -1,6 +1,5 @@
 import React from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import {
   AppText,
@@ -13,22 +12,22 @@ import {
   ScrollScreen,
   SectionHeader,
 } from '../components/UI';
-import { C, gradients, radius, shadows, spacing } from '../theme';
+import { C, radius, spacing } from '../theme';
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return (parts.slice(0, 2).map(part => part[0]).join('') || 'ML').toUpperCase();
 }
 
-function InfoRow({ icon, title, description, badge, tone = 'primary' }) {
+function ProfileInfoRow({ icon, title, description, badge, tone = 'primary' }) {
   return (
     <View style={styles.infoRow}>
-      <FeatureIcon name={icon} tone={tone} size={44} />
+      <FeatureIcon name={icon} tone={tone} size={40} />
       <View style={styles.infoCopy}>
-        <AppText variant="bodyStrong">{title}</AppText>
-        <Muted selectable>{description}</Muted>
+        <AppText variant="headline">{title}</AppText>
+        <Muted selectable style={styles.infoDesc}>{description}</Muted>
       </View>
-      {badge ? <Badge label={badge} tone={tone === 'accent' ? 'good' : 'neutral'} /> : null}
+      {badge ? <Badge label={badge} tone={tone === 'good' ? 'good' : 'neutral'} /> : null}
     </View>
   );
 }
@@ -37,7 +36,7 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
 
   function confirmLogout() {
-    Alert.alert('Sign out of MathLens?', 'Your synced scans will remain safely stored in your account.', [
+    Alert.alert('Sign out of MathLens?', 'Your synced equations and workspace library will remain safely preserved in the cloud.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: logout },
     ]);
@@ -45,74 +44,82 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ScrollScreen>
-        <LinearGradient colors={gradients.hero} style={styles.profileHero}>
+      <ScrollScreen contentContainerStyle={styles.scrollContent}>
+        {/* Academic User Card */}
+        <Card style={styles.userCard}>
           <View style={styles.avatar}>
-            <AppText variant="title" color="white">{initials(user?.name)}</AppText>
+            <AppText variant="title" style={styles.avatarText}>{initials(user?.name)}</AppText>
           </View>
-          <View style={styles.profileCopy}>
-            <AppText variant="title" color="white" selectable>{user?.name || 'MathLens user'}</AppText>
-            <AppText color="#C8D5F0" selectable>{user?.email}</AppText>
-            <View style={styles.badges}>
-              <Badge label={(user?.plan || 'free').toUpperCase()} tone="good" icon="diamond-outline" />
-              <Badge label={(user?.role || 'user').toUpperCase()} tone="neutral" icon="person-outline" />
+          <View style={styles.userCopy}>
+            <AppText variant="title" selectable>{user?.name || 'MathLens User'}</AppText>
+            <Muted selectable style={styles.userEmail}>{user?.email || 'Authenticated Account'}</Muted>
+            <View style={styles.userBadges}>
+              <Badge label={(user?.plan || 'Standard').toUpperCase()} tone="primary" icon="diamond-outline" />
+              <Badge label={(user?.role || 'Member').toUpperCase()} tone="neutral" icon="person-outline" />
             </View>
           </View>
-        </LinearGradient>
+        </Card>
 
-        <SectionHeader title="Account" subtitle="Your identity and workspace access." />
-        <Card style={styles.infoCard}>
-          <InfoRow
+        {/* Account Details */}
+        <SectionHeader title="Account credentials" subtitle="Identity and access configuration." />
+        <Card style={styles.sectionCard}>
+          <ProfileInfoRow
             icon="mail-outline"
-            title="Email address"
+            title="Verified email"
             description={user?.email || 'Not available'}
             badge="Verified"
-            tone="accent"
+            tone="good"
           />
           <View style={styles.divider} />
-          <InfoRow
+          <ProfileInfoRow
             icon="briefcase-outline"
-            title="Workspace role"
-            description={`Signed in as ${user?.role || 'user'}`}
-            badge={user?.plan || 'free'}
+            title="Workspace clearance"
+            description={`Operating as ${user?.role || 'user'}`}
+            badge={user?.plan || 'Standard'}
+            tone="primary"
           />
         </Card>
 
-        <SectionHeader title="Experience" subtitle="Professional defaults enabled for your account." />
-        <Card style={styles.infoCard}>
-          <InfoRow
+        {/* Experience & Defaults */}
+        <SectionHeader title="Workspace configuration" subtitle="Standard settings applied to all scans." />
+        <Card style={styles.sectionCard}>
+          <ProfileInfoRow
             icon="cloud-done-outline"
-            title="Cloud sync"
-            description="Scan history and edits stay available across sessions."
+            title="Cloud synchronization"
+            description="Automatic background syncing across devices."
             badge="Active"
-            tone="accent"
+            tone="good"
           />
           <View style={styles.divider} />
-          <InfoRow
+          <ProfileInfoRow
             icon="document-text-outline"
-            title="Export quality"
-            description="PDF and Word exports preserve recognized text and LaTeX."
+            title="Export engine"
+            description="High-fidelity LaTeX and DOCX equation formatting."
+            tone="primary"
           />
           <View style={styles.divider} />
-          <InfoRow
+          <ProfileInfoRow
             icon="shield-checkmark-outline"
-            title="Private workspace"
-            description="Authenticated requests protect your personal scan library."
-            tone="accent"
+            title="Data protection"
+            description="Personal workspace scans isolated and authenticated."
+            tone="primary"
           />
         </Card>
 
+        {/* Sign Out CTA */}
         <Button
-          title="Sign out"
+          title="Sign out of workspace"
           icon="log-out-outline"
           variant="danger"
+          size="lg"
           haptic
           onPress={confirmLogout}
+          style={styles.signOutBtn}
         />
 
-        <View style={styles.version}>
-          <AppText variant="caption" color="muted">MATHLENS AI • VERSION 4.1</AppText>
-          <AppText variant="caption" color="subtle">SCAN • SOLVE • UNDERSTAND</AppText>
+        <View style={styles.footerVersion}>
+          <AppText variant="caption" color="muted">MATHLENS AI • TECHNICAL WORKSPACE 4.1</AppText>
+          <AppText variant="caption" color="subtle">ACADEMIC & SCIENTIFIC OCR PIPELINE</AppText>
         </View>
       </ScrollScreen>
     </Screen>
@@ -120,53 +127,71 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  profileHero: {
-    borderRadius: radius.xl,
-    borderCurve: 'continuous',
-    padding: spacing.xl,
+  scrollContent: {
+    paddingBottom: spacing.huge,
+    gap: spacing.lg,
+  },
+  userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
-    boxShadow: shadows.raised,
+    gap: spacing.md,
+    padding: spacing.lg,
   },
   avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: radius.full,
+    width: 60,
+    height: 60,
+    borderRadius: radius.md,
+    backgroundColor: C.primarySoft,
+    borderWidth: 1.5,
+    borderColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.13)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
-  profileCopy: {
+  avatarText: {
+    color: C.primary,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  userCopy: {
     flex: 1,
-    gap: spacing.xxs,
+    gap: 2,
   },
-  badges: {
+  userEmail: {
+    fontSize: 13,
+  },
+  userBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingTop: spacing.xs,
   },
-  infoCard: {
-    gap: spacing.md,
+  sectionCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingVertical: 2,
   },
   infoCopy: {
     flex: 1,
+    gap: 2,
+  },
+  infoDesc: {
+    fontSize: 12,
   },
   divider: {
     height: 1,
     backgroundColor: C.border,
   },
-  version: {
+  signOutBtn: {
+    marginTop: spacing.xs,
+  },
+  footerVersion: {
     alignItems: 'center',
-    gap: spacing.xxs,
-    paddingTop: spacing.md,
+    gap: 2,
+    paddingTop: spacing.xs,
   },
 });

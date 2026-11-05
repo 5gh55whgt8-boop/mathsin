@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import {
   AppText,
@@ -13,40 +14,42 @@ import {
   PressableScale,
   Screen,
 } from '../components/UI';
-import { C, layout, spacing } from '../theme';
+import { C, layout, radius, spacing } from '../theme';
 
 function formatDate(value) {
-  if (!value) return 'Date unavailable';
+  if (!value) return 'Recent';
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 }
 
 function ScanRow({ item, onPress }) {
   const isLocal = item.provider === 'mlkit' || item.ocrSource === 'mlkit' || item.recognitionMode === 'local';
-  const typeLabel = isLocal ? 'Quick scan' : item.sourceType === 'image' ? 'Image' : item.sourceType === 'pdf' ? 'PDF' : 'Document';
-  const preview = item.plainText || item.markdown || 'Open to view recognized content.';
+  const typeLabel = isLocal ? 'Fast OCR' : item.sourceType === 'image' ? 'Equation' : item.sourceType === 'pdf' ? 'PDF' : 'Document';
+  const preview = item.plainText || item.markdown || item.latex || 'Open to view recognized content.';
 
   return (
     <PressableScale accessibilityLabel={`Open ${item.title}`} onPress={onPress}>
       <Card style={styles.rowCard}>
         <View style={styles.rowTop}>
           <FeatureIcon
-            name={item.sourceType === 'image' ? 'image-outline' : 'document-text-outline'}
-            tone={item.sourceType === 'image' ? 'accent' : 'primary'}
-            size={46}
+            name={item.sourceType === 'image' ? 'calculator-outline' : 'document-text-outline'}
+            tone="primary"
+            size={42}
           />
           <View style={styles.rowCopy}>
-            <AppText variant="headline" numberOfLines={1}>{item.title || 'Untitled scan'}</AppText>
-            <Muted numberOfLines={2}>{preview}</Muted>
+            <AppText variant="headline" numberOfLines={1}>{item.title || 'Untitled equation scan'}</AppText>
+            <Muted numberOfLines={2} style={styles.rowPreviewText}>{preview}</Muted>
           </View>
-          <FeatureIcon name="chevron-forward" size={32} />
+          <Ionicons name="chevron-forward" size={18} color={C.subtle} />
         </View>
         <View style={styles.rowMeta}>
-          <Badge label={typeLabel} tone="neutral" />
+          <Badge label={typeLabel} tone={isLocal ? 'neutral' : 'primary'} />
           {item.questions?.length > 0 && (
-            <Badge label={`${item.questions.length} questions`} tone="primary" icon="help-circle-outline" />
+            <Badge label={`${item.questions.length} Qs`} tone="neutral" icon="help-circle-outline" />
           )}
           <AppText variant="caption" color="muted" style={styles.date}>{formatDate(item.createdAt)}</AppText>
         </View>
@@ -69,7 +72,7 @@ export default function HistoryScreen({ navigation }) {
       const response = await api.get('/scans');
       setItems(response.data.items || []);
     } catch (loadError) {
-      setError(loadError.response?.data?.error || 'Could not load scan history.');
+      setError(loadError.response?.data?.error || 'Could not load scan library.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -110,12 +113,12 @@ export default function HistoryScreen({ navigation }) {
         ListHeaderComponent={(
           <View style={styles.header}>
             <View style={styles.heading}>
-              <AppText variant="title">Your scan library</AppText>
-              <Muted>{items.length} saved {items.length === 1 ? 'scan' : 'scans'}, synced to your workspace.</Muted>
+              <AppText variant="title">Mathematical Library</AppText>
+              <Muted>{items.length} digitized {items.length === 1 ? 'item' : 'items'} synced to your workspace.</Muted>
             </View>
             <Input
               icon="search-outline"
-              placeholder="Search titles, text or tags"
+              placeholder="Search equations, formulas or tags"
               value={query}
               onChangeText={setQuery}
               returnKeyType="search"
@@ -130,13 +133,13 @@ export default function HistoryScreen({ navigation }) {
         ListEmptyComponent={loading ? (
           <View style={styles.loader}>
             <ActivityIndicator size="large" color={C.primary} />
-            <Muted>Loading your scans…</Muted>
+            <Muted>Loading library records…</Muted>
           </View>
         ) : (
           <EmptyState
-            icon={query ? 'search-outline' : 'documents-outline'}
-            title={query ? 'No matching scans' : 'Your library is ready'}
-            message={query ? 'Try another title, tag or phrase.' : 'Your recognized equations and documents will appear here.'}
+            icon={query ? 'search-outline' : 'library-outline'}
+            title={query ? 'No matching scans' : 'Your library is empty'}
+            message={query ? 'Try another keyword or expression snippet.' : 'Equations and documents you scan will be organized here.'}
           />
         )}
         renderItem={({ item }) => (
@@ -154,21 +157,22 @@ const styles = StyleSheet.create({
     maxWidth: layout.maxContent,
     alignSelf: 'center',
     paddingHorizontal: layout.screenPadding,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.huge,
   },
   header: {
-    gap: spacing.md,
-    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
   },
   heading: {
-    gap: spacing.xxs,
+    gap: 2,
   },
   separator: {
-    height: spacing.sm,
+    height: spacing.xs,
   },
   rowCard: {
-    gap: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   rowTop: {
     flexDirection: 'row',
@@ -177,21 +181,27 @@ const styles = StyleSheet.create({
   },
   rowCopy: {
     flex: 1,
-    gap: spacing.xxs,
+    gap: 2,
+  },
+  rowPreviewText: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   rowMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.xs,
+    paddingTop: spacing.xxs,
   },
   date: {
     marginLeft: 'auto',
+    fontSize: 11,
   },
   loader: {
-    minHeight: 360,
+    minHeight: 280,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
 });

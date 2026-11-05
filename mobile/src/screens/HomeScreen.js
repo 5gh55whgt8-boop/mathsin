@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
@@ -28,35 +27,46 @@ function greeting() {
 }
 
 function relativeTime(value) {
-  if (!value) return 'Date unavailable';
+  if (!value) return 'Recent';
   const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
   const minutes = Math.floor(elapsed / 60000);
   if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return `${days}d ago`;
 }
 
-function RecentScan({ scan, onPress }) {
-  const preview = (scan.plainText || scan.markdown || '').trim();
+function RecentScanCard({ scan, onPress }) {
+  const preview = (scan.plainText || scan.markdown || scan.latex || '').trim();
   const isDocument = scan.sourceType !== 'image';
+
   return (
-    <PressableScale accessibilityLabel={`Open ${scan.title || 'recent scan'}`} onPress={onPress} style={styles.recentPressable}>
+    <PressableScale accessibilityLabel={`Open ${scan.title || 'scan'}`} onPress={onPress} style={styles.recentItem}>
       <Card style={styles.recentCard}>
-        <View style={styles.recentPreview}>
+        <View style={styles.recentTop}>
           <FeatureIcon
-            name={isDocument ? 'document-text-outline' : 'image-outline'}
-            tone={isDocument ? 'accent' : 'primary'}
-            size={40}
+            name={isDocument ? 'document-text-outline' : 'calculator-outline'}
+            tone="primary"
+            size={36}
           />
-          <AppText variant="bodyStrong" numberOfLines={3} style={styles.previewText}>
-            {preview || 'Open to view recognized content.'}
+          <Badge
+            label={isDocument ? 'DOCUMENT' : 'EQUATION'}
+            tone={isDocument ? 'neutral' : 'primary'}
+          />
+        </View>
+        <View style={styles.recentSnippetBox}>
+          <AppText variant="subhead" numberOfLines={3} style={styles.recentSnippetText}>
+            {preview || 'Recognized mathematical expression.'}
           </AppText>
         </View>
-        <AppText variant="bodyStrong" numberOfLines={1}>{scan.title || 'Untitled scan'}</AppText>
-        <Muted>{relativeTime(scan.createdAt)}</Muted>
+        <View style={styles.recentBottom}>
+          <AppText variant="headline" numberOfLines={1} style={styles.recentTitle}>
+            {scan.title || 'Untitled scan'}
+          </AppText>
+          <Muted style={styles.recentTime}>{relativeTime(scan.createdAt)}</Muted>
+        </View>
       </Card>
     </PressableScale>
   );
@@ -85,91 +95,106 @@ export default function HomeScreen({ navigation }) {
   return (
     <Screen>
       <ScrollScreen contentContainerStyle={styles.content}>
+        {/* Editorial Math Workspace Hero */}
         <Animated.View entering={FadeInDown.duration(motion.base).reduceMotion(ReduceMotion.System)}>
-          <LinearGradient
-            colors={['#E6F4FF', '#F0E9FF', '#DCD9FF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
-            <Badge label="YOUR AI MATH WORKSPACE" tone="primary" icon="sparkles" />
+          <Card tone="dark" style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <Badge label="MATHEMATICS WORKSPACE" tone="primary" icon="sparkles" />
+              <Muted color="subtle">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Muted>
+            </View>
             <View style={styles.heroMain}>
-              <View style={styles.heroCopy}>
-                <AppText variant="display" style={styles.heroTitle}>{greeting()},</AppText>
-                <AppText variant="display" style={styles.heroName}>{firstName}</AppText>
-                <AppText color="muted" style={styles.heroDescription}>
-                  Turn any equation or document into editable, solvable math.
-                </AppText>
-              </View>
-              <View style={styles.formulaVisual} accessibilityLabel="MathLens equation preview">
-                <View style={styles.formulaBack}>
-                  <AppText variant="headline" color="ink">∫ x² dx</AppText>
-                  <AppText variant="headline" color="ink">= x³⁄₃ + C</AppText>
-                </View>
-                <View style={styles.formulaFront}>
-                  <AppText variant="headline" color="primary">∫ x² dx</AppText>
-                  <AppText variant="headline" color="primary">= x³⁄₃ + C</AppText>
-                </View>
-              </View>
+              <AppText variant="display" color="white" style={styles.heroTitle}>
+                {greeting()}, {firstName}
+              </AppText>
+              <AppText color="#CBD5E1" style={styles.heroSubtitle}>
+                Scan equations, recognize formulas, and generate complete step-by-step mathematical solutions.
+              </AppText>
             </View>
-            <View style={styles.heroActions}>
-              <View style={styles.heroAction}>
-                <FeatureIcon name="camera-outline" tone="primary" size={38} />
-                <Muted style={styles.heroActionText}>Scan{'\n'}document</Muted>
-              </View>
-              <View style={styles.heroAction}>
-                <FeatureIcon name="document-text-outline" tone="accent" size={38} />
-                <Muted style={styles.heroActionText}>Extract{'\n'}math content</Muted>
-              </View>
-              <View style={styles.heroAction}>
-                <FeatureIcon name="bulb-outline" tone="warning" size={38} />
-                <Muted style={styles.heroActionText}>Get step-by-step{'\n'}solutions</Muted>
-              </View>
+            <View style={styles.heroCtaRow}>
+              <Button
+                title="Scan equation or document"
+                icon="camera-outline"
+                variant="primary"
+                size="lg"
+                onPress={() => navigation.navigate('Scan')}
+                style={styles.heroScanBtn}
+              />
             </View>
-          </LinearGradient>
+          </Card>
         </Animated.View>
 
+        {/* Quick Capture Options */}
         <SectionHeader
-          title="Quick capture"
-          subtitle="Choose a source to get started."
-          action={<IconButton name="chevron-forward" accessibilityLabel="Open scan options" onPress={() => navigation.navigate('Scan')} />}
+          title="Input sources"
+          subtitle="Select input method to digitize math."
         />
-        <View style={styles.captureGrid}>
-          <PressableScale accessibilityLabel="Open photo scanner" onPress={() => navigation.navigate('Scan')} style={styles.capturePressable}>
-            <Card style={[styles.captureCard, styles.photoCard]}>
-              <FeatureIcon name="camera-outline" tone="primary" size={48} />
-              <AppText variant="headline">Photo scan</AppText>
-              <Muted>Camera or gallery</Muted>
-              <Button title="Open scanner" icon="arrow-forward" size="sm" onPress={() => navigation.navigate('Scan')} />
+        <View style={styles.sourceGrid}>
+          <PressableScale
+            accessibilityLabel="Scan with Camera"
+            onPress={() => navigation.navigate('Scan')}
+            style={styles.sourceItem}
+          >
+            <Card style={styles.sourceCard}>
+              <FeatureIcon name="camera-outline" tone="primary" size={40} />
+              <View style={styles.sourceCopy}>
+                <AppText variant="headline">Camera scan</AppText>
+                <Muted style={styles.sourceSub}>Handwritten or printed</Muted>
+              </View>
+              <Ionicons name="arrow-forward" size={16} color={C.primary} style={styles.sourceArrow} />
             </Card>
           </PressableScale>
-          <PressableScale accessibilityLabel="Open document scanner" onPress={() => navigation.navigate('Scan')} style={styles.capturePressable}>
-            <Card style={[styles.captureCard, styles.documentCard]}>
-              <FeatureIcon name="document-text-outline" tone="accent" size={48} />
-              <AppText variant="headline">Document</AppText>
-              <Muted>PDF, DOCX or TXT</Muted>
-              <Button title="Choose file" icon="arrow-forward" size="sm" variant="secondary" onPress={() => navigation.navigate('Scan')} />
+
+          <PressableScale
+            accessibilityLabel="Import Document"
+            onPress={() => navigation.navigate('Scan')}
+            style={styles.sourceItem}
+          >
+            <Card style={styles.sourceCard}>
+              <FeatureIcon name="document-text-outline" tone="navy" size={40} />
+              <View style={styles.sourceCopy}>
+                <AppText variant="headline">Document</AppText>
+                <Muted style={styles.sourceSub}>PDF, DOCX, TXT</Muted>
+              </View>
+              <Ionicons name="arrow-forward" size={16} color={C.primary} style={styles.sourceArrow} />
             </Card>
           </PressableScale>
         </View>
 
+        {/* Core Mathematical Capabilities */}
+        <SectionHeader
+          title="Mathematical capabilities"
+          subtitle="Equipped for academic & technical productivity."
+        />
         <View style={styles.featureGrid}>
           {[
-            ['create-outline', 'Handwritten math', 'primary'],
-            ['calculator-outline', 'Solve with steps', 'accent'],
-            ['create-outline', 'Editable results', 'warning'],
-            ['cloud-done-outline', 'Cloud synced', 'primary'],
-          ].map(([icon, label, tone]) => (
-            <Card key={label} style={styles.featureCard}>
-              <FeatureIcon name={icon} tone={tone} size={38} />
-              <AppText variant="caption" style={styles.featureLabel}>{label}</AppText>
+            ['calculator-outline', 'Step-by-step solver', 'Complete algebraic & calculus breakdowns'],
+            ['code-slash-outline', 'LaTeX & Markdown', 'Export clean math notation instantly'],
+            ['checkmark-done-outline', 'Solution check', 'Verify answers with detailed corrections'],
+            ['cloud-done-outline', 'Workspace sync', 'All scans securely saved to your account'],
+          ].map(([icon, title, desc]) => (
+            <Card key={title} style={styles.featureCard}>
+              <FeatureIcon name={icon} tone="primary" size={38} />
+              <View style={styles.featureCopy}>
+                <AppText variant="headline">{title}</AppText>
+                <Muted style={styles.featureDesc}>{desc}</Muted>
+              </View>
             </Card>
           ))}
         </View>
 
+        {/* Recent Scans */}
         <SectionHeader
-          title="Recent scans"
-          action={<Button title="See all" icon="arrow-forward" variant="ghost" size="sm" onPress={() => navigation.navigate('History')} />}
+          title="Recent library activity"
+          subtitle="Your latest digitized equations and files."
+          action={
+            <Button
+              title="View library"
+              icon="arrow-forward"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate('History')}
+            />
+          }
         />
         {recentError ? (
           <Card tone="warning">
@@ -182,17 +207,28 @@ export default function HomeScreen({ navigation }) {
             contentContainerStyle={styles.recentList}
           >
             {recentScans.map(scan => (
-              <RecentScan key={scan._id} scan={scan} onPress={() => navigation.navigate('Result', { scan })} />
+              <RecentScanCard
+                key={scan._id}
+                scan={scan}
+                onPress={() => navigation.navigate('Result', { scan })}
+              />
             ))}
           </ScrollView>
         ) : (
-          <Card style={styles.emptyRecent}>
-            <FeatureIcon name="time-outline" tone="primary" size={42} />
-            <View style={styles.emptyCopy}>
-              <AppText variant="bodyStrong">No recent scans yet</AppText>
-              <Muted>Your completed scans will appear here.</Muted>
+          <Card style={styles.emptyRecentCard}>
+            <FeatureIcon name="time-outline" tone="neutral" size={44} />
+            <View style={styles.emptyRecentCopy}>
+              <AppText variant="headline">No scans recorded yet</AppText>
+              <Muted style={styles.emptyRecentSub}>
+                Capture equations with your camera or import a document to begin.
+              </Muted>
             </View>
-            <Button title="Start scanning" size="sm" onPress={() => navigation.navigate('Scan')} />
+            <Button
+              title="Start scanning"
+              icon="camera-outline"
+              size="sm"
+              onPress={() => navigation.navigate('Scan')}
+            />
           </Card>
         )}
       </ScrollScreen>
@@ -205,154 +241,125 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.huge,
     gap: spacing.lg,
   },
-  hero: {
-    borderRadius: radius.xl,
+  heroCard: {
     padding: spacing.lg,
-    gap: spacing.sm,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#DDE0FF',
-    boxShadow: shadows.raised,
+    gap: spacing.md,
+    borderRadius: radius.lg,
   },
-  heroTitle: {
-    color: C.ink,
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  heroName: {
-    color: C.primary,
-    fontSize: 34,
-    lineHeight: 36,
-  },
-  heroMain: {
-    minHeight: 220,
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
-  heroCopy: {
-    flex: 1,
-    gap: spacing.xxs,
+  heroMain: {
+    gap: spacing.xs,
   },
-  heroDescription: {
-    paddingTop: spacing.sm,
+  heroTitle: {
+    color: C.white,
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  heroSubtitle: {
     fontSize: 13,
     lineHeight: 19,
   },
-  formulaVisual: {
-    width: 130,
-    height: 170,
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ rotate: '7deg' }],
+  heroCtaRow: {
+    paddingTop: spacing.xs,
   },
-  formulaBack: {
-    position: 'absolute',
-    top: 8,
-    right: -4,
-    width: 116,
-    minHeight: 112,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    padding: spacing.sm,
-    transform: [{ rotate: '-4deg' }],
+  heroScanBtn: {
+    width: '100%',
   },
-  formulaFront: {
-    width: 126,
-    minHeight: 122,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    padding: spacing.sm,
-    boxShadow: shadows.card,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  heroAction: {
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  heroActionText: {
-    textAlign: 'center',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  captureGrid: {
+  sourceGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  capturePressable: {
+  sourceItem: {
     flex: 1,
   },
-  captureCard: {
-    minHeight: 204,
+  sourceCard: {
+    minHeight: 124,
     justifyContent: 'space-between',
+    padding: spacing.md,
     gap: spacing.xs,
   },
-  photoCard: {
-    backgroundColor: '#F6EEFF',
+  sourceCopy: {
+    gap: 2,
   },
-  documentCard: {
-    backgroundColor: '#E8FBF8',
+  sourceSub: {
+    fontSize: 12,
+  },
+  sourceArrow: {
+    alignSelf: 'flex-end',
   },
   featureGrid: {
-    flexDirection: 'row',
     gap: spacing.sm,
   },
   featureCard: {
-    flex: 1,
-    minHeight: 96,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    gap: spacing.md,
+    padding: spacing.md,
   },
-  featureLabel: {
-    textAlign: 'center',
+  featureCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  featureDesc: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   recentList: {
     gap: spacing.sm,
     paddingRight: spacing.lg,
   },
-  recentPressable: {
-    width: 184,
+  recentItem: {
+    width: 220,
   },
   recentCard: {
-    minHeight: 162,
+    minHeight: 168,
+    justifyContent: 'space-between',
+    padding: spacing.md,
     gap: spacing.xs,
-    padding: spacing.sm,
   },
-  recentPreview: {
-    height: 92,
-    borderRadius: radius.md,
-    backgroundColor: '#F5F6F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    padding: spacing.sm,
-  },
-  previewText: {
-    textAlign: 'center',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  emptyRecent: {
+  recentTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
-  emptyCopy: {
+  recentSnippetBox: {
+    minHeight: 58,
+    borderRadius: radius.sm,
+    backgroundColor: C.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: spacing.xs,
+    justifyContent: 'center',
+  },
+  recentSnippetText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: C.inkSecondary,
+  },
+  recentBottom: {
+    gap: 2,
+  },
+  recentTitle: {
+    fontSize: 13,
+  },
+  recentTime: {
+    fontSize: 11,
+  },
+  emptyRecentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  emptyRecentCopy: {
     flex: 1,
-    gap: spacing.xxs,
+    gap: 2,
+  },
+  emptyRecentSub: {
+    fontSize: 12,
   },
 });

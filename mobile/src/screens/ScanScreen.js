@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api, describeApiFailure, syncLocalScan } from '../api/client';
+import { markCameraPending, clearCameraPending } from '../services/ocr/cameraRecovery';
 import { recognizeImage, containsMathLikeText } from '../services/ocr';
 import {
   AppText,
@@ -24,58 +25,77 @@ import { C, gradients, radius, shadows, spacing } from '../theme';
 
 const sources = [
   {
-    key: 'quick-upload',
-    title: 'Scan Text (Gallery)',
-    description: 'Select a printed image from gallery.',
-    icon: 'image-outline',
-    tone: 'accent',
-    category: '',
-    cardColor: '#ECFBF7',
-  },
-  {
     key: 'ai-camera',
     title: 'Scan & Solve (Camera)',
-    description: 'Scan handwritten or printed math.',
+    description: 'Capture handwritten or printed math with camera.',
     icon: 'camera-outline',
-    tone: 'blue',
-    category: '',
-    cardColor: '#EEF7FF',
+    tone: 'primary',
+    badge: 'AI SOLVER',
   },
   {
     key: 'ai-upload',
     title: 'Scan & Solve (Gallery)',
-    description: 'Select a handwritten or printed image.',
+    description: 'Select an equation image from your photos.',
     icon: 'images-outline',
-    tone: 'pink',
-    category: '',
-    cardColor: '#FFF0F5',
+    tone: 'primary',
+    badge: 'AI SOLVER',
+  },
+  {
+    key: 'quick-upload',
+    title: 'Fast Text OCR',
+    description: 'Rapid on-device recognition for printed text.',
+    icon: 'flash-outline',
+    tone: 'navy',
+    badge: 'ON-DEVICE',
   },
   {
     key: 'document',
     title: 'Import Document',
-    description: 'PDF, DOCX or TXT (with math).',
+    description: 'Analyze PDF, DOCX or TXT with math notation.',
     icon: 'document-text-outline',
-    tone: 'warning',
-    category: '',
-    cardColor: '#FFF7E9',
+    tone: 'navy',
+    badge: 'DOCUMENT',
   },
   {
     key: 'create-pdf',
-    title: 'Create PDF',
-    description: 'Combine multiple images.',
+    title: 'Create Multi-Page PDF',
+    description: 'Combine multiple photos into an export-ready PDF.',
     icon: 'copy-outline',
     tone: 'primary',
-    category: '',
-    cardColor: '#F8F0FF',
+    badge: 'UTILITY',
   },
 ];
-const sourceRows = [sources.slice(0, 2), sources.slice(2, 4), sources.slice(4, 6)];
+const sourceRows = [sources.slice(0, 2), sources.slice(2, 4), sources.slice(4, 5)];
 
-export default function ScanScreen({ navigation }) {
+const documentMimeByExtension = {
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  txt: 'text/plain',
+};
+
+// Pickers can report no type or a generic one, and the server only accepts real
+// document types, so derive the type from the file name when needed.
+function documentMimeType(asset) {
+  const supplied = String(asset?.mimeType || '').toLowerCase();
+  if (Object.values(documentMimeByExtension).includes(supplied)) return supplied;
+  const name = asset?.name || asset?.fileName || asset?.uri || '';
+  const ext = String(name).split('?')[0].split('.').pop().toLowerCase();
+  return documentMimeByExtension[ext] || supplied || 'application/octet-stream';
+}
+
+export default function ScanScreen({ navigation, route }) {
   const [asset, setAsset] = useState(null);
   const [busy, setBusy] = useState(false);
   const { width } = useWindowDimensions();
   const compact = width < 380;
+
+  // The photo taken just before Android restarted the app is handed over by the navigator.
+  const recovered = route?.params?.recovered;
+  useEffect(() => {
+    if (!recovered?.uri) return;
+    setAsset({ ...recovered, kind: 'image', mode: 'ai', captureSource: 'camera' });
+    navigation.setParams({ recovered: undefined });
+  }, [recovered, navigation]);
 
   async function image(camera = false, mode = 'ai') {
     try {
@@ -86,12 +106,16 @@ export default function ScanScreen({ navigation }) {
           Alert.alert('Camera permission needed', 'Allow camera access to scan text directly.');
           return;
         }
+        // Android may destroy this app while the camera is open; the flag lets the
+        // next launch recover the finished photo (see services/ocr/cameraRecovery).
+        await markCameraPending();
         result = await ImagePicker.launchCameraAsync({
           quality: 0.85,
           exif: false,
           allowsEditing: false,
           mediaTypes: ['images'],
         });
+        await clearCameraPending();
       } else {
         if (Platform.OS !== 'web') {
           const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -115,6 +139,7 @@ export default function ScanScreen({ navigation }) {
         setAsset({ ...selected, kind: 'image', mode, captureSource: camera ? 'camera' : 'gallery' });
       }
     } catch (error) {
+      await clearCameraPending();
       Alert.alert('Unable to open image', error.message);
     }
   }
@@ -302,10 +327,14 @@ export default function ScanScreen({ navigation }) {
       if (Platform.OS === 'web') {
         await appendWebFile(formData, asset);
       } else {
-        const fileName = asset.fileName || asset.name || 'camera-scan.jpg';
-        const mimeType = asset.mimeType?.startsWith('image/')
-          ? asset.mimeType
-          : /\.(png)$/i.test(fileName) ? 'image/png' : 'image/jpeg';
+        const isDocument = asset.kind === 'document';
+        const fileName = asset.fileName || asset.name || (isDocument ? 'document' : 'camera-scan.jpg');
+        // Documents must keep their real type; forcing image/jpeg made the server reject them.
+        const mimeType = isDocument
+          ? documentMimeType(asset)
+          : asset.mimeType?.startsWith('image/')
+            ? asset.mimeType
+            : /\.(png)$/i.test(fileName) ? 'image/png' : 'image/jpeg';
         formData.append('file', {
           uri: asset.uri,
           name: fileName,
@@ -336,56 +365,68 @@ export default function ScanScreen({ navigation }) {
 
   return (
     <Screen>
-      <View style={styles.page}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.page}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.heading}>
-          <AppText variant="display" style={styles.headingTitle}>Choose <AppText variant="display" color="primary">input type</AppText></AppText>
-          <Muted>Select how you want to scan.</Muted>
+          <AppText variant="title">Capture & Analyze</AppText>
+          <Muted>Choose an input method to scan equations or documents.</Muted>
         </View>
 
         {!asset ? (
-          <>
-            <View style={styles.sourceGrid}>
-              {sourceRows.map((row, rowIndex) => (
-                <View key={`source-row-${rowIndex}`} style={styles.sourceRow}>
-                  {row.map(source => (
-                    <PressableScale
-                      key={source.key}
-                      accessibilityLabel={source.title}
-                      disabled={busy}
-                      onPress={() => chooseSource(source.key)}
-                      style={styles.sourceItem}
-                    >
-                      <Card style={[styles.sourceCard, compact && styles.sourceCardCompact, { backgroundColor: source.cardColor }]}>
-                        <FeatureIcon name={source.icon} tone={source.tone} size={compact ? 32 : 38} />
-                        {source.category ? <AppText variant="caption" color="muted" numberOfLines={1}>{source.category}</AppText> : null}
+          <View style={styles.sourceGrid}>
+            {sourceRows.map((row, rowIndex) => (
+              <View key={`source-row-${rowIndex}`} style={styles.sourceRow}>
+                {row.map(source => (
+                  <PressableScale
+                    key={source.key}
+                    accessibilityLabel={source.title}
+                    disabled={busy}
+                    onPress={() => chooseSource(source.key)}
+                    style={styles.sourceItem}
+                  >
+                    <Card style={[styles.sourceCard, compact && styles.sourceCardCompact]}>
+                      <View style={styles.sourceCardTop}>
+                        <FeatureIcon name={source.icon} tone={source.tone} size={compact ? 36 : 40} />
+                        {source.badge && (
+                          <Badge
+                            label={source.badge}
+                            tone={source.tone === 'primary' ? 'primary' : 'neutral'}
+                          />
+                        )}
+                      </View>
+                      <View style={styles.sourceCardBody}>
                         <AppText variant="headline" numberOfLines={1}>{source.title}</AppText>
                         <Muted numberOfLines={2} style={styles.tileDescription}>{source.description}</Muted>
-                        <View style={styles.tileFooter}>
-                          <AppText variant="caption" color="primary">Open</AppText>
-                          <FeatureIcon name="arrow-forward" size={compact ? 24 : 28} />
-                        </View>
-                      </Card>
-                    </PressableScale>
-                  ))}
-                </View>
-              ))}
-            </View>
-          </>
+                      </View>
+                      <View style={styles.tileFooter}>
+                        <AppText variant="caption" color="primary">Select</AppText>
+                        <Ionicons name="arrow-forward" size={14} color={C.primary} />
+                      </View>
+                    </Card>
+                  </PressableScale>
+                ))}
+              </View>
+            ))}
+          </View>
         ) : (
           <View style={styles.selectionSection}>
             <SectionHeader
-              title={asset.kind === 'image' ? 'Ready to scan' : 'Ready to upload'}
+              title={asset.kind === 'image' ? 'Ready to process' : 'Ready to analyze'}
               subtitle={asset.kind === 'image'
                 ? (asset.mode === 'quick'
-                  ? 'Text will be read quickly from this image.'
-                  : 'This image will be processed securely for the best result.')
+                  ? 'On-device text recognition will read this image directly.'
+                  : 'AI mathematics pipeline will solve equations and format solutions.')
                 : 'Document will be processed via secure document pipeline.'}
             />
             <Card style={styles.previewCard}>
               <View style={styles.previewHeader}>
                 <Badge
-                  label={asset.kind === 'image' ? (asset.mode === 'quick' ? 'QUICK SCAN' : 'AI SCAN') : 'DOCUMENT'}
-                  tone={asset.kind === 'image' && asset.mode === 'quick' ? 'good' : 'primary'}
+                  label={asset.kind === 'image' ? (asset.mode === 'quick' ? 'FAST OCR' : 'AI MATH SOLVER') : 'DOCUMENT'}
+                  tone={asset.kind === 'image' && asset.mode === 'quick' ? 'neutral' : 'primary'}
                   icon={asset.kind === 'image' ? 'scan-outline' : 'document-outline'}
                 />
                 <IconButton
@@ -393,28 +434,32 @@ export default function ScanScreen({ navigation }) {
                   accessibilityLabel="Remove selected file"
                   onPress={() => setAsset(null)}
                   disabled={busy}
+                  variant="light"
                 />
               </View>
 
               {asset.kind === 'image' ? (
-                <Image
-                  source={{ uri: asset.uri }}
-                  style={styles.previewImage}
-                  contentFit="contain"
-                  transition={180}
-                />
+                <View style={styles.imagePreviewWrap}>
+                  <Image
+                    source={{ uri: asset.uri }}
+                    style={styles.previewImage}
+                    contentFit="contain"
+                    transition={160}
+                  />
+                </View>
               ) : (
-                <LinearGradient colors={gradients.soft} style={styles.documentPreview}>
-                  <FeatureIcon name="document-text" tone="primary" size={72} />
-                  <AppText variant="caption" color="primary">SUPPORTED DOCUMENT</AppText>
-                </LinearGradient>
+                <View style={styles.documentPreview}>
+                  <FeatureIcon name="document-text-outline" tone="primary" size={64} />
+                  <AppText variant="headline" style={styles.documentPreviewTitle}>Document Ready</AppText>
+                  <Muted style={styles.documentPreviewSub}>PDF, Word DOCX, or text file</Muted>
+                </View>
               )}
 
               <View style={styles.fileMeta}>
                 <View style={styles.fileCopy}>
                   <AppText variant="bodyStrong" numberOfLines={1}>{assetName}</AppText>
                   <Muted>{asset.kind === 'image'
-                    ? (asset.mode === 'quick' ? 'Quick text scan' : 'Detailed image scan')
+                    ? (asset.mode === 'quick' ? 'On-device text scan' : 'AI mathematical analysis')
                     : (asset.mimeType || 'Ready for secure upload')}</Muted>
                 </View>
                 <Badge label="Ready" tone="good" icon="checkmark-circle" />
@@ -423,10 +468,12 @@ export default function ScanScreen({ navigation }) {
               <Button
                 title={
                   asset.kind === 'image'
-                    ? (busy ? 'Reading text…' : asset.mode === 'quick' ? 'Quick scan' : 'Scan with AI')
-                    : (busy ? 'Reading document…' : 'Scan Document')
+                    ? (busy ? 'Analyzing equation…' : asset.mode === 'quick' ? 'Recognize text' : 'Scan & Solve with AI')
+                    : (busy ? 'Processing document…' : 'Process Document')
                 }
-                icon={asset.kind === 'image' ? 'scan-outline' : 'document-text-outline'}
+                icon={asset.kind === 'image' ? 'calculator-outline' : 'document-text-outline'}
+                variant="primary"
+                size="lg"
                 loading={busy}
                 haptic
                 onPress={handleScan}
@@ -434,14 +481,15 @@ export default function ScanScreen({ navigation }) {
               <AppText variant="caption" color="muted" style={styles.busyNote}>
                 {asset.kind === 'image'
                   ? (asset.mode === 'quick'
-                    ? (busy ? 'READING TEXT…' : '⚡ QUICK TEXT SCAN')
-                    : (busy ? 'READING IMAGE…' : 'DETAILED IMAGE SCAN'))
-                  : 'READING DOCUMENT. MULTI-PAGE DOCUMENTS MAY TAKE SEVERAL MINUTES.'}
+                    ? (busy ? 'READING ON-DEVICE…' : '⚡ HIGH-SPEED LOCAL OCR')
+                    : (busy ? 'SOLVING EQUATION WITH AI…' : 'DEEP MATHEMATICAL OCR & STEP-BY-STEP SOLVER'))
+                  : 'SECURE DOCUMENT PIPELINE. MULTI-PAGE FILES MAY TAKE A MOMENT.'}
               </AppText>
             </Card>
           </View>
         )}
-      </View>
+      </ScrollView>
+
       {busy && !asset ? (
         <View
           accessibilityRole="alert"
@@ -450,8 +498,8 @@ export default function ScanScreen({ navigation }) {
         >
           <Card style={styles.pdfLoadingCard}>
             <ActivityIndicator size="large" color={C.primary} />
-            <AppText variant="headline">Creating your PDF</AppText>
-            <Muted>Combining your images. This may take a moment.</Muted>
+            <AppText variant="headline">Generating PDF</AppText>
+            <Muted style={styles.pdfLoadingText}>Merging selected images into an export document…</Muted>
           </Card>
         </View>
       ) : null}
@@ -461,41 +509,22 @@ export default function ScanScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   page: {
-    flex: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    paddingBottom: spacing.huge,
+    gap: spacing.md,
   },
-  pdfLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: 'rgba(244, 247, 251, 0.88)',
-    zIndex: 10,
-  },
-  pdfLoadingCard: {
-    width: '100%',
-    maxWidth: 360,
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
+  scroll: {
+    flex: 1,
   },
   heading: {
-    gap: spacing.xxs,
-    paddingBottom: spacing.xs,
-  },
-  headingTitle: {
-    fontSize: 32,
-    lineHeight: 38,
+    gap: 2,
+    paddingBottom: spacing.xxs,
   },
   sourceGrid: {
-    flex: 1,
     gap: spacing.sm,
   },
   sourceRow: {
-    flex: 1,
     flexDirection: 'row',
     gap: spacing.sm,
   },
@@ -503,16 +532,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sourceCard: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    gap: spacing.xxs,
+    minHeight: 148,
+    justifyContent: 'space-between',
     padding: spacing.md,
-    borderWidth: 0,
-    boxShadow: '0 6px 18px rgba(25, 39, 79, 0.06)',
+    gap: spacing.xs,
   },
   sourceCardCompact: {
     padding: spacing.sm,
+    minHeight: 136,
+  },
+  sourceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sourceCardBody: {
+    gap: 2,
+  },
+  tileDescription: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   tileFooter: {
     marginTop: 'auto',
@@ -520,15 +559,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  tileDescription: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  sourceCopy: {
-    flex: 1,
-    gap: spacing.xxs,
+    paddingTop: 4,
   },
   selectionSection: {
     flex: 1,
@@ -536,26 +567,42 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     gap: spacing.md,
-    boxShadow: shadows.raised,
+    padding: spacing.lg,
   },
   previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  imagePreviewWrap: {
+    width: '100%',
+    height: 200,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: C.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
   previewImage: {
     width: '100%',
-    height: 180,
-    borderRadius: radius.md,
-    backgroundColor: C.bg,
+    height: '100%',
   },
   documentPreview: {
-    minHeight: 200,
+    minHeight: 160,
     borderRadius: radius.md,
-    borderCurve: 'continuous',
+    backgroundColor: C.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  documentPreviewTitle: {
+    marginTop: spacing.xs,
+  },
+  documentPreviewSub: {
+    fontSize: 12,
   },
   fileMeta: {
     flexDirection: 'row',
@@ -568,9 +615,24 @@ const styles = StyleSheet.create({
   busyNote: {
     textAlign: 'center',
   },
-  tipCard: {
-    flexDirection: 'row',
+  pdfLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    zIndex: 10,
+  },
+  pdfLoadingCard: {
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  pdfLoadingText: {
+    textAlign: 'center',
+    fontSize: 12,
   },
 });

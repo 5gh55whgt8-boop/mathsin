@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { AppText, AuthScreen, Brand, Button, Card, Input, Muted } from '../components/UI';
+import { AppText, AuthScreen, Badge, Brand, Button, Card, Input, Muted } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
-import { C, gradients, radius, shadows, spacing } from '../theme';
+import { C, radius, spacing } from '../theme';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -28,28 +27,23 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <AuthScreen>
-      <LinearGradient colors={gradients.soft} style={styles.brandPanel}>
+      <View style={styles.headerBlock}>
         <Brand />
-        <View style={styles.brandMessage}>
-          <AppText variant="display">Your smartest math workspace.</AppText>
-          <Muted>Scan equations, solve with clear steps, and export polished documents.</Muted>
+        <View style={styles.headerCopy}>
+          <AppText variant="title">Sign in to MathLens</AppText>
+          <Muted>Access your math library, equation solver, and synced documents.</Muted>
         </View>
-        <View style={styles.proofRow}>
-          <AppText variant="caption" color="primary">OCR + AI SOLVING</AppText>
-          <View style={styles.proofDot} />
-          <AppText variant="caption" color="good">CLOUD SYNCED</AppText>
+        <View style={styles.badgeRow}>
+          <Badge label="AI MATH ENGINE" tone="primary" icon="sparkles" />
+          <Badge label="PRIVATE & SYNCED" tone="neutral" icon="shield-checkmark" />
         </View>
-      </LinearGradient>
+      </View>
 
       <Card style={styles.formCard}>
-        <View style={styles.formHeading}>
-          <AppText variant="section">Welcome back</AppText>
-          <Muted>Sign in to continue to your workspace.</Muted>
-        </View>
         <Input
           label="Email address"
           icon="mail-outline"
-          placeholder="you@example.com"
+          placeholder="name@university.edu"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
@@ -59,7 +53,7 @@ export default function LoginScreen({ navigation }) {
         <Input
           label="Password"
           icon="lock-closed-outline"
-          placeholder="Enter your password"
+          placeholder="Enter account password"
           secureTextEntry
           autoComplete="current-password"
           value={password}
@@ -68,12 +62,15 @@ export default function LoginScreen({ navigation }) {
           returnKeyType="go"
         />
         <Button
-          title="Sign in securely"
+          title="Sign in to workspace"
           icon="arrow-forward"
+          variant="primary"
+          size="lg"
           loading={busy}
           disabled={!email.trim() || !password}
           haptic
           onPress={go}
+          style={styles.submitBtn}
         />
         <Button
           title="Create a new account"
@@ -83,45 +80,35 @@ export default function LoginScreen({ navigation }) {
       </Card>
 
       <AppText variant="caption" color="muted" style={styles.footer}>
-        PRIVATE BY DESIGN • YOUR SCANS STAY IN YOUR WORKSPACE
+        SECURE ACADEMIC WORKSPACE • VERIFIED RECOGNITION
       </AppText>
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  brandPanel: {
-    borderRadius: radius.xl,
-    borderCurve: 'continuous',
-    padding: spacing.xl,
-    gap: spacing.xl,
-    borderWidth: 1,
-    borderColor: '#DFDCFF',
+  headerBlock: {
+    gap: spacing.sm,
   },
-  brandMessage: {
-    gap: spacing.xs,
+  headerCopy: {
+    gap: spacing.xxs,
+    marginTop: spacing.xs,
   },
-  proofRow: {
+  badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'center',
     gap: spacing.xs,
-  },
-  proofDot: {
-    width: 4,
-    height: 4,
-    borderRadius: radius.full,
-    backgroundColor: C.borderStrong,
+    marginTop: spacing.xxs,
   },
   formCard: {
     gap: spacing.md,
-    boxShadow: shadows.raised,
+    padding: spacing.lg,
   },
-  formHeading: {
-    gap: spacing.xxs,
-    paddingBottom: spacing.xs,
+  submitBtn: {
+    marginTop: spacing.xs,
   },
   footer: {
     textAlign: 'center',
+    paddingTop: spacing.xs,
   },
 });
