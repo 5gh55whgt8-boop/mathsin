@@ -51,9 +51,9 @@ export function ScrollScreen({ children, contentContainerStyle, ...props }) {
   );
 }
 
-export function AuthScreen({ children }) {
+export function AuthScreen({ children, edges = ['top', 'bottom'] }) {
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.authSafe}>
+    <SafeAreaView edges={edges} style={styles.authSafe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoiding}

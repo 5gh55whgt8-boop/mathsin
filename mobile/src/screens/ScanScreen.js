@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { api, describeApiFailure, syncLocalScan } from '../api/client';
 import { markCameraPending, clearCameraPending } from '../services/ocr/cameraRecovery';
 import { recognizeImage, containsMathLikeText } from '../services/ocr';
@@ -21,7 +21,7 @@ import {
   Screen,
   SectionHeader,
 } from '../components/UI';
-import { C, gradients, radius, shadows, spacing } from '../theme';
+import { C, radius, shadows, spacing } from '../theme';
 
 const sources = [
   {

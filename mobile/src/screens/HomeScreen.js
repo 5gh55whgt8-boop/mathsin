@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +11,6 @@ import {
   Button,
   Card,
   FeatureIcon,
-  IconButton,
   Muted,
   PressableScale,
   Screen,
@@ -216,18 +216,22 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
         ) : (
           <Card style={styles.emptyRecentCard}>
-            <FeatureIcon name="time-outline" tone="neutral" size={44} />
-            <View style={styles.emptyRecentCopy}>
-              <AppText variant="headline">No scans recorded yet</AppText>
-              <Muted style={styles.emptyRecentSub}>
-                Capture equations with your camera or import a document to begin.
-              </Muted>
+            <View style={styles.emptyRecentContent}>
+              <FeatureIcon name="time-outline" tone="neutral" size={40} />
+              <View style={styles.emptyRecentCopy}>
+                <AppText variant="headline">No scans recorded yet</AppText>
+                <Muted style={styles.emptyRecentSub}>
+                  Capture equations with your camera or import a document to begin.
+                </Muted>
+              </View>
             </View>
             <Button
               title="Start scanning"
               icon="camera-outline"
               size="sm"
+              variant="secondary"
               onPress={() => navigation.navigate('Scan')}
+              style={styles.emptyRecentBtn}
             />
           </Card>
         )}
@@ -350,10 +354,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   emptyRecentCard: {
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  emptyRecentContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.md,
   },
   emptyRecentCopy: {
     flex: 1,
@@ -361,5 +368,8 @@ const styles = StyleSheet.create({
   },
   emptyRecentSub: {
     fontSize: 12,
+  },
+  emptyRecentBtn: {
+    alignSelf: 'flex-start',
   },
 });

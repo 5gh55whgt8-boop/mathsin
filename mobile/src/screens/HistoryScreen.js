@@ -14,7 +14,7 @@ import {
   PressableScale,
   Screen,
 } from '../components/UI';
-import { C, layout, radius, spacing } from '../theme';
+import { C, layout, spacing } from '../theme';
 
 function formatDate(value) {
   if (!value) return 'Recent';
@@ -97,7 +97,7 @@ export default function HistoryScreen({ navigation }) {
     <Screen>
       <FlatList
         data={filteredItems}
-        keyExtractor={item => item._id}
+        keyExtractor={(item, index) => item._id || item.id || `scan-${item.createdAt || index}`}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         refreshControl={(

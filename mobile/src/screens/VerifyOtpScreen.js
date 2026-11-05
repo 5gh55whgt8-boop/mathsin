@@ -35,7 +35,7 @@ export default function VerifyOtpScreen({ route }) {
   }
 
   return (
-    <AuthScreen>
+    <AuthScreen edges={['bottom']}>
       <View style={styles.headerBlock}>
         <Brand />
         <View style={styles.heading}>

@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL, api, describeApiFailure, syncLocalScan } from '../api/client';
 import {
   AppText,
@@ -560,18 +561,17 @@ const styles = StyleSheet.create({
     backgroundColor: C.border,
   },
   exportGrid: {
-    flexDirection: 'row',
     gap: spacing.sm,
   },
   exportItem: {
-    flex: 1,
+    width: '100%',
   },
   exportCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     padding: spacing.md,
-    minHeight: 76,
+    minHeight: 72,
   },
   exportDesc: {
     fontSize: 12,

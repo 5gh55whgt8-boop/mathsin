@@ -23,6 +23,7 @@ export const C = {
   // Typography Colors
   ink: '#0F172A',
   inkSoft: '#334155',
+  inkSecondary: '#475569',
   muted: '#64748B',
   subtle: '#94A3B8',
 

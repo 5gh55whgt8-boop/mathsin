@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { AppText, Badge, Brand, Button, Card, Input, Muted, Screen, ScrollScreen } from '../components/UI';
+import { AppText, AuthScreen, Badge, Brand, Button, Card, Input, Muted } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { spacing } from '../theme';
 
@@ -27,9 +27,8 @@ export default function RegisterScreen({ navigation }) {
   const valid = name.trim() && email.trim() && password.length >= 8;
 
   return (
-    <Screen>
-      <ScrollScreen contentContainerStyle={styles.content}>
-        <View style={styles.headerBlock}>
+    <AuthScreen edges={['bottom']}>
+      <View style={styles.headerBlock}>
           <Brand />
           <View style={styles.heading}>
             <AppText variant="title">Create your workspace</AppText>
@@ -85,17 +84,12 @@ export default function RegisterScreen({ navigation }) {
           <Badge label="ENCRYPTED AUTHENTICATION" tone="neutral" icon="lock-closed" />
           <Badge label="INSTANT CLOUD SYNC" tone="primary" icon="cloud-done" />
         </View>
-      </ScrollScreen>
-    </Screen>
-  );
-}
+      </AuthScreen>
+    );
+  }
 
-const styles = StyleSheet.create({
-  content: {
-    justifyContent: 'center',
-    gap: spacing.lg,
-  },
-  headerBlock: {
+  const styles = StyleSheet.create({
+    headerBlock: {
     gap: spacing.md,
   },
   heading: {

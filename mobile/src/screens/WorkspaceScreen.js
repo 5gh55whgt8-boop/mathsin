@@ -64,7 +64,7 @@ export default function WorkspaceScreen() {
           </View>
           <View style={styles.planBody}>
             <AppText variant="title" color="white">Mathematical Repository</AppText>
-            <AppText color="#94A3B8" style={styles.planDescription}>
+            <AppText color="subtle" style={styles.planDescription}>
               All scans, equation transcriptions, LaTeX code, and step-by-step solutions are synchronized securely.
             </AppText>
           </View>
